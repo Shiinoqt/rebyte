@@ -1,108 +1,153 @@
 # Rebyte
 
-Marketplace di hardware e software di seconda mano: annunci, ricerca, messaggistica,
-acquisto e consegna. L'hardware si spedisce, il software si scarica subito tramite licenza.
-Backend a microservizi Spring Boot, frontend Angular.
+A second-hand marketplace for hardware and software, built with Angular and
+Spring Boot microservices. Physical products follow a shipping workflow; software
+listings support versions, licenses and digital delivery.
+
+## What it does
+
+- Browse hardware and software listings with category-specific attributes,
+  faceted search and favourites.
+- Publish listings, manage software versions and negotiate offers.
+- Follow checkout, payment, delivery, license and review workflows.
+- Exchange messages over WebSocket and receive email notifications.
+- Sign in through Amazon Cognito, with separate buyer, seller, developer and
+  administrator capabilities.
+
+**Demo status:** public source is available; image publication and deployed demo
+acceptance are in progress. Payments use the PayPal sandbox. Live checkout,
+reset and deployment checks are still pending.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Web[Angular] --> Gateway[Spring Cloud Gateway]
+    Gateway --> Services[User / Catalog / Order / Payment / Messaging]
+    Gateway --> Redis[Redis]
+    Services <--> RabbitMQ[RabbitMQ events]
+    Services --> MySQL[MySQL]
+    Services --> MongoDB[MongoDB]
+    Services --> Meilisearch[Meilisearch]
+```
+
+Each service owns its data. Synchronous cross-service reads use OpenFeign on
+internal endpoints; asynchronous integration uses RabbitMQ events. Services
+discover each other through Eureka. The gateway handles public routing, JWT
+validation, rate limiting and the WebSocket entry point; internal endpoints
+remain private.
+
+| Module | Responsibility | Primary storage |
+| --- | --- | --- |
+| `user-service` | Profiles, avatars, follows and roles | MySQL |
+| `catalog-service` | Listings, category attributes, favourites, software versions and search | MongoDB, Meilisearch |
+| `order-service` | Checkout, offers, shipping, licenses and reviews | MySQL |
+| `payment-service` | PayPal sandbox orders, verified webhooks and refunds | MySQL |
+| `messaging-service` | Conversations, STOMP messaging, notifications and SES email | MongoDB |
+| `api-gateway` | Public API, authentication boundary, rate limiting and WebSocket proxy | Redis for rate limiting |
+| `discovery-server` | Eureka service registry | None |
+| `it.rebyte.commons` | Shared contracts, security, media, errors and events | None |
+| `web` | Angular marketplace frontend | Backend APIs |
+
+See the [architecture](docs/architecture.md) for service boundaries, persistence
+choices and the checkout saga. The [domain model](docs/rebyte_progettazione.md)
+is the binding reference when the documents differ.
 
 ## Stack
 
-| | |
-|---|---|
-| Linguaggio | Java 26 |
-| Framework | Spring Boot 4.1.1, Spring Cloud 2025.1.3 |
-| Build | Maven multi-modulo (wrapper incluso) |
-| Discovery / Gateway | Eureka, Spring Cloud Gateway |
-| Persistenza | MySQL 8.4 (user, order, payment) · MongoDB 7 (catalog, messaging) |
-| Altro | Redis, RabbitMQ, Meilisearch |
+| Area | Technology |
+| --- | --- |
+| Backend | Java 26, Spring Boot 4.1.1, Spring Cloud 2025.1.3 |
+| Frontend | Angular 22.2, TypeScript 6, NgRx Signals |
+| Build | Maven wrapper, Node.js 24.21.0, npm 12.2.0 |
+| Data | MySQL 8.4, MongoDB 7, Redis, Meilisearch |
+| Integration | RabbitMQ, OpenFeign, WebSocket/STOMP |
+| External services | Amazon Cognito, S3, CloudFront, SES/SQS, PayPal sandbox |
+| Verification | Testcontainers, frontend unit tests, Playwright |
 
-Perché la persistenza è poliglotta, perché MongoDB deve girare come replica set e come
-funziona la saga di checkout: `docs/architecture.md`.
+## Run locally
 
-## Prerequisiti
+You need Docker with Compose, JDK 26, Node.js 24.21.0 and npm 12.2.0. Maven is
+downloaded by the included wrapper.
 
-- Docker con Compose
-- Un JDK 26
+### Configure your environment
 
-Maven **non** serve: `./mvnw` scarica da solo la distribuzione che gli occorre.
-
-## Avvio rapido
+From the repository root:
 
 ```bash
-# 1. configurazione locale: sostituire le password e inserire le chiavi richieste
 cp infra/.env.example infra/.env
+```
 
-# 2. datastore (MySQL, MongoDB replica set, Redis, RabbitMQ, Meilisearch)
-docker compose -f infra/docker-compose.yml up -d --build
+Set local passwords and the required integration values in `infra/.env` before
+starting the backend. The template documents the variables; Compose refuses
+missing required values. Features using Cognito, AWS media/email or PayPal need
+your own service configuration and credentials.
 
-# 3. tutti i servizi Spring in container
+The frontend loads API, WebSocket and Cognito settings from
+[`web/public/config.json`](web/public/config.json). Update it for your environment.
+It is served to browsers and must contain only public configuration.
+
+### Start the backend
+
+```bash
 docker compose -f infra/docker-compose.yml -f infra/docker-compose.services.yml up -d --build --wait
 ```
 
-In alternativa un singolo servizio si avvia dal sorgente: `./mvnw -pl <modulo> spring-boot:run`.
+The API gateway is available at `http://localhost:8080`; Eureka is at
+`http://localhost:8761`. The Compose files also start the application datastores
+and initialize MongoDB as a replica set for transactions.
 
-`infra/docker-compose.services.yml` rifiuta di partire se mancano le variabili obbligatorie
-(bucket media, chiavi IAM dedicate di messaging-service, segreto di disiscrizione).
-La consegna eventi SES resta spenta finche `SES_EVENTS_ENABLED` non e `true`.
+If you only need the local datastores, use this command instead:
 
-Build completa e test: `./mvnw clean install` (gli integration test usano Testcontainers,
-quindi serve Docker).
+```bash
+docker compose -f infra/docker-compose.yml up -d --build
+```
 
-## Porte
+MongoDB uses host port `27017`, matching its replica-set address. That port must
+be available. Other local datastore and service ports are configurable in the
+environment template.
 
-| Servizio | Porta | | Datastore | Porta |
-|---|---|---|---|---|
-| discovery-server | 8761 | | MySQL | 3306 |
-| api-gateway | 8080 | | MongoDB | 27017 |
-| user-service | 8081 | | Redis | 6379 |
-| catalog-service | 8082 | | RabbitMQ | 5672 / 15672 |
-| messaging-service | 8083 | | Meilisearch | 7700 |
-| order-service | 8084 | | | |
-| payment-service | 8085 | | | |
+### Start the frontend
 
-> **27017 non è rimappabile.** Il membro del replica set è dichiarato come
-> `localhost:27017` e mongod si riconosce come membro solo se quella porta coincide con
-> quella su cui ascolta. Se un altro progetto la occupa, va fermato quello. Le altre porte
-> si cambiano da `infra/.env`.
+```bash
+npm --prefix web ci
+npm --prefix web start
+```
 
-## Stato dei moduli
+Open `http://localhost:4200`. The development frontend uses the runtime
+configuration above to reach the backend.
 
-| Modulo | Stato |
-|---|---|
-| `discovery-server` | ✅ registry Eureka standalone |
-| `api-gateway` | ✅ routing, rate limiting su Redis, resource server OAuth2 (`cognito` / `local-auth`), WebSocket `/ws` |
-| `it.rebyte.commons` | ✅ errori RFC 9457, sicurezza, media, eventi e pattern di licenza condivisi |
-| `user-service` | ✅ identita Cognito, profili, avatar, follow, ruoli admin e developer |
-| `catalog-service` | ✅ annunci con attributi per categoria, ricerca Meilisearch, preferiti, software e versioni |
-| `order-service` | ✅ checkout, offerte, spedizione, licenze, problemi e recensioni |
-| `payment-service` | ✅ PayPal Orders v2 sandbox con webhook, rimborsi |
-| `messaging-service` | 🟡 conversazioni via REST e STOMP, notifiche, email SES; manca l'accettazione live (fase 5) |
-| `web` (Angular) | ⬜ da fare (fase 6) |
+## Build and test
 
-L'ordine di costruzione è quello di `docs/architecture.md` §12. Il parent `pom.xml` elenca
-un modulo per volta: una `<module>` che punta a una directory senza `pom.xml` fa fallire
-Maven alla lettura del reactor.
+Run these commands from the repository root with Docker running for backend
+integration tests:
 
-## Convenzioni
+```bash
+./mvnw -B verify
+npm --prefix web run test:ci
+npm --prefix web run build
+```
 
-- Package base `it.rebyte.<service>`.
-- Nomi di dominio in inglese, come nel modello ristrutturato: `License`, non `Entitlement`.
-- Layering `controller → service → repository`. DTO in ingresso e in uscita, entità mai
-  esposte.
-- Semplicità sopra astrazione: niente factory o strategy se non esiste una seconda
-  implementazione reale.
-- **Nessun servizio legge il database di un altro.** Le letture sincrone fra servizi
-  passano da OpenFeign, il resto da eventi RabbitMQ.
-- Gli endpoint `/internal/**` sono chiamate fra servizi e non sono esposti dal gateway.
+On Windows, use `.\mvnw.cmd -B verify` for the Maven command.
+Browser journeys use [Playwright](web/playwright.config.ts), including Cognito
+test-user setup. Run them only against a configured development environment.
 
-## Documentazione
+## Demo deployment
 
-- `docs/rebyte_progettazione.md` — modello concettuale ristrutturato. **Vincolante**: in
-  caso di conflitto con l'architettura, vince questo.
-- `docs/architecture.md` — architettura a microservizi, saga di checkout, deployment.
-- `docs/testing-conventions.md` — convenzioni per unit e integration test.
-- `docs/phase-03-sandbox-runbook.md`, `docs/phase-05-live-runbook.md` — passi manuali per
-  PayPal sandbox, tunnel webhook, AWS SES/SQS.
-- Le collection Postman e gli strumenti operativi opzionali sono mantenuti nel
-  repository di sviluppo privato.
-- La configurazione operativa AWS e Atlas resta nel repository privato.
-- `docs/*.vpp` — progetti Visual Paradigm dei diagrammi UML.
+The [release workflow](.github/workflows/demo-images.yml) verifies the backend,
+frontend and demo tooling, then builds a coordinated set of container images.
+The [demo Compose file](infra/docker-compose.demo.yml) consumes those images;
+deployment through Coolify is manual.
+
+This public repository is a reviewed source snapshot. `demo-source.json` records
+its development-source revision; GitHub commits identify the distinct public
+releases. Credentials, deployment-specific AWS/Atlas configuration, Postman
+collections and optional operator tools stay in the private development repository.
+The scripts required to build, test and run the published images are included.
+
+## Documentation
+
+- [Domain model](docs/rebyte_progettazione.md): concepts, rules and data model.
+- [Architecture](docs/architecture.md): service design and integration patterns.
+- [Testing conventions](docs/testing-conventions.md): unit, integration and browser testing.
+- [Demo runbook](docs/phase-06.1-demo-runbook.md): deployment and acceptance procedure.

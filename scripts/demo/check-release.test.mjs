@@ -104,6 +104,11 @@ test('runner artifacts reject private configuration and changed executable bytes
   }
 });
 
+test('RabbitMQ fixture build is mandatory before tooling tests',()=>{
+  const value=workflow();value.jobs.build.steps=value.jobs.build.steps.filter(step=>step.run!=='docker build --tag rebyte/rabbitmq:4.1-delayed infra/rabbitmq');
+  assert.throws(()=>validateWorkflow(value,dockerfiles()));
+});
+
 test('runner behavioral smoke is mandatory in the verified build job',()=>{
   const value=workflow();value.jobs.build.steps=value.jobs.build.steps.filter(step=>step.run!=='node scripts/demo/runner-image-smoke.mjs');
   assert.throws(()=>validateWorkflow(value,dockerfiles()));
