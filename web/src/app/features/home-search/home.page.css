@@ -1,0 +1,91 @@
+:host {
+  display: block;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+h1:focus {
+  outline: none;
+}
+.favourite-login-dialog {
+  width: min(28rem, calc(100vw - 2 * var(--space-md)));
+  padding: var(--space-xl);
+  color: var(--text-body);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+.favourite-login-dialog::backdrop {
+  background: rgb(18 29 40 / 48%);
+}
+.favourite-login-dialog h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-heading);
+  font-weight: var(--weight-semibold);
+}
+.favourite-login-dialog p {
+  margin: var(--space-sm) 0 var(--space-lg);
+  line-height: var(--leading-body);
+}
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-md);
+  padding: var(--space-sm) var(--space-lg);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+}
+.action.primary {
+  color: var(--text-on-primary);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.action:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-lg);
+}
+app-load-more {
+  margin-top: var(--space-lg);
+  text-align: center;
+}
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-md);
+  }
+}
+@media (max-width: 360px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

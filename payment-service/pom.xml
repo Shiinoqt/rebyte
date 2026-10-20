@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>it.rebyte</groupId>
+    <artifactId>rebyte</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>payment-service</artifactId>
+  <name>payment-service</name>
+  <description>PayPal Orders v2 create/capture behind an operation gate (03-CONTEXT.md D-01, D-02, D-21, D-23)</description>
+
+  <dependencies>
+    <!-- REST layer servlet/MVC (controller -> service -> repository) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-restclient</artifactId>
+    </dependency>
+
+    <!-- PayPalClient directly uses these Boot types for per-client timeouts. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-http-client</artifactId>
+    </dependency>
+
+    <!-- access to payment_db -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+
+    <!-- JDBC driver for payment_db; runtime only, never referenced from code -->
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!--
+      Boot 4.x requires the dedicated starter to trigger Flyway
+      auto-configuration (a bare flyway-core no longer does), same as
+      user-service/order-service pom.xml.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-flyway</artifactId>
+    </dependency>
+    <!-- planner-discipline-allow: flyway-core -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-mysql</artifactId>
+    </dependency>
+
+    <!-- JWT validation for POST /payments/{orderId}/capture (buyer-authenticated) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
+
+    <!-- @Valid on inbound DTOs -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- health/metrics/prometheus -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!--
+      Synchronous cross-service call on /internal/**: payment-service claims
+      the capture-operation grant from order-service before ever calling
+      PayPal (D-02 amendment, capture gate). No PATCH verb on this client, so
+      feign-hc5 is not needed (unlike order-service's catalog reserve call).
+    -->
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-openfeign</artifactId>
+    </dependency>
+
+    <!--
+      D-37 spirit: the capture-authorization Feign call is exactly as
+      checkout-critical as order-service's own catalog/payment calls, so it
+      runs behind the same short-timeout circuit breaker treatment.
+    -->
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+    </dependency>
+
+    <!--
+      Declared now even though this plan publishes no event yet (D-38's
+      per-service outbox for payment.succeeded/payment.failed lands in a
+      later plan) — the same "declare once, never reopen this pom for it"
+      pattern order-service's pom.xml documents for its own AMQP starter.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-amqp</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <version>${springdoc.version}</version>
+    </dependency>
+
+    <!-- DomainException, ProblemTypes, AbstractApiExceptionHandler, CognitoGroupsAuthoritiesConverter -->
+    <dependency>
+      <groupId>it.rebyte</groupId>
+      <artifactId>commons</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      Boot 4.x: TestRestTemplate moved to this separate module, not carried
+      transitively by spring-boot-starter-test any more (same finding as
+      user-service/order-service pom.xml) — needed for a real HTTP client
+      (not MockMvc) driving the *IT classes end to end.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-resttestclient</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      Official WireMock artifact (03-05-PLAN.md Task 1: "test-scoped official
+      WireMock artifact after verifying its Maven version"). 3.13.2 is the
+      latest stable release (verified against
+      https://repo.maven.apache.org/maven2/org/wiremock/ 2026-09-24; 4.0.0
+      only has beta releases so far). The bare org.wiremock:wiremock core
+      artifact does NOT bundle an HTTP server implementation in the 3.x line
+      (confirmed via genuine RED evidence: FatalStartupException "Jetty 11
+      is not present and no suitable HttpServerFactory extension was
+      found") — wiremock-standalone is the shaded artifact that bundles
+      Jetty, matching every 3.x quickstart. Stubs both the PayPal sandbox
+      API and order-service's internal capture-authorization endpoint in
+      this module's *IT classes — no shared test module exists to place it
+      in (docs/testing-conventions.md).
+    -->
+    <dependency>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock-standalone</artifactId>
+      <version>3.13.2</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- @ServiceConnection MySQL container for the *IT classes -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>mysql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>rabbitmq</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <compilerArgs>
+            <arg>-parameters</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+
+      <!-- *IT bound to verify, *Test to test (docs/testing-conventions.md) -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>

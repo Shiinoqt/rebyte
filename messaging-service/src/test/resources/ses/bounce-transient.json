@@ -1,0 +1,29 @@
+{
+  "eventType": "Bounce",
+  "bounce": {
+    "feedbackId": "0100019a0000-bounce-transient-0000000",
+    "bounceType": "Transient",
+    "bounceSubType": "MailboxFull",
+    "bouncedRecipients": [
+      {
+        "emailAddress": "full.mailbox@example.test",
+        "action": "failed",
+        "status": "4.2.2",
+        "diagnosticCode": "smtp; 452 4.2.2 mailbox full"
+      }
+    ],
+    "timestamp": "2026-10-01T11:00:05.000Z",
+    "reportingMTA": "dns; mta.example.test"
+  },
+  "mail": {
+    "timestamp": "2026-10-01T11:00:00.000Z",
+    "source": "no-reply@example.test",
+    "sendingAccountId": "123456789012",
+    "messageId": "ses-message-bounce-transient-0002",
+    "destination": ["full.mailbox@example.test"],
+    "headersTruncated": false,
+    "tags": {
+      "ses:configuration-set": ["rebyte-transactional"]
+    }
+  }
+}

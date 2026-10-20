@@ -1,0 +1,26 @@
+{
+  "eventType": "Complaint",
+  "complaint": {
+    "feedbackId": "0100019a0000-complaint-00000000000",
+    "complainedRecipients": [
+      {
+        "emailAddress": "Complainer@Example.Test"
+      }
+    ],
+    "timestamp": "2026-10-01T12:00:05.000Z",
+    "userAgent": "ExampleMailClient/1.0",
+    "complaintFeedbackType": "abuse",
+    "arrivalDate": "2026-10-01T12:00:03.000Z"
+  },
+  "mail": {
+    "timestamp": "2026-10-01T12:00:00.000Z",
+    "source": "no-reply@example.test",
+    "sendingAccountId": "123456789012",
+    "messageId": "ses-message-complaint-0003",
+    "destination": ["complainer@example.test"],
+    "headersTruncated": false,
+    "tags": {
+      "ses:configuration-set": ["rebyte-transactional"]
+    }
+  }
+}

@@ -1,0 +1,323 @@
+:host {
+  display: block;
+  max-width: var(--container-wide);
+  margin-inline: auto;
+  font-family: var(--font-ui);
+  color: var(--ink);
+}
+h1 {
+  margin: 0;
+  font-size: var(--text-heading);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-heading);
+  overflow-wrap: anywhere;
+}
+h1.plain {
+  margin-bottom: var(--space-lg);
+  font-size: var(--text-display);
+  letter-spacing: var(--tracking-display);
+}
+h1 a {
+  color: inherit;
+  text-decoration: none;
+}
+h1 a:hover {
+  color: var(--primary-strong);
+  text-decoration: underline;
+}
+h1:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+h2 {
+  margin: 0;
+  font-size: var(--text-body-size);
+  font-weight: var(--weight-semibold);
+}
+p,
+dl,
+address {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.micro {
+  margin: 0 0 var(--space-md);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+.title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+}
+.meta,
+.method {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
+}
+.rail {
+  position: sticky;
+  top: calc(var(--header-height) + var(--space-md));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+  padding: var(--space-lg);
+  border-radius: var(--radius-xl);
+  background: var(--surface-summary);
+}
+.rail .micro {
+  margin: 0;
+}
+.shipment,
+.address,
+.parties {
+  padding: var(--space-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-modal);
+}
+.shipment dl,
+.parties dl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.shipment dl > div,
+.parties dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+.parties dl > div {
+  align-items: center;
+}
+dt {
+  color: var(--text-muted);
+}
+dd {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  text-align: right;
+}
+dd a,
+.unavailable a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--hit-min);
+  color: var(--primary-strong);
+  font-weight: var(--weight-semibold);
+}
+app-copy-field {
+  margin-top: var(--space-sm);
+}
+:host app-copy-field ::ng-deep code {
+  flex: 0 1 auto;
+}
+address {
+  display: flex;
+  flex-direction: column;
+  font-style: normal;
+  line-height: var(--leading-body);
+}
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(var(--lead-steps, 1), minmax(0, 1fr)) 0;
+  margin: 0;
+  padding: var(--space-lg) var(--space-2xl);
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-modal);
+}
+.stepper li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  min-width: 0;
+  padding-top: var(--space-lg);
+}
+.stepper li::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--border);
+}
+.stepper li:last-child::before {
+  display: none;
+}
+.stepper li:has(+ li[data-state='done'])::before,
+.stepper li:has(+ li[data-state='current'])::before {
+  background: var(--primary);
+}
+.marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-round);
+  background: var(--surface-modal);
+}
+li[data-state='done'] .marker,
+li[data-state='current'] .marker {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+li[data-state='current'] .marker {
+  box-shadow: 0 0 0 4px var(--primary-soft);
+}
+.step-label,
+.step-time {
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.step-label {
+  font-weight: var(--weight-semibold);
+}
+li[data-state='todo'] .step-label {
+  color: var(--text-muted);
+}
+.step-time {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+.notice {
+  display: block;
+}
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.actions app-busy-button {
+  display: block;
+}
+.actions app-busy-button ::ng-deep button {
+  width: 100%;
+}
+.note {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  line-height: var(--leading-body);
+}
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+.countdown {
+  margin-top: calc(-1 * var(--space-sm));
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+.unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-xl);
+  border-radius: var(--radius-xl);
+  background: var(--surface-modal);
+  box-shadow: var(--shadow-md);
+}
+.unavailable h2 {
+  font-size: var(--text-heading);
+}
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rail {
+    position: static;
+  }
+}
+@media (max-width: 560px) {
+  .stepper {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-md);
+    padding: var(--space-md);
+  }
+  .stepper li {
+    padding: 0 0 0 var(--space-lg);
+  }
+  .stepper li:not(:last-child)::before {
+    top: 19px;
+    left: 7px;
+    right: auto;
+    width: 2px;
+    height: calc(100% + var(--space-md) - 16px);
+  }
+  .marker {
+    top: 3px;
+    transform: none;
+  }
+  .step-label,
+  .step-time {
+    transform: none;
+  }
+  .shipment dl > div,
+  .parties dl > div {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+  .parties dl > div {
+    align-items: flex-start;
+  }
+  dd {
+    text-align: left;
+  }
+}

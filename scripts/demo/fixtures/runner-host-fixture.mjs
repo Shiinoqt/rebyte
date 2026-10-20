@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+import {mkdirSync,readFileSync,writeFileSync} from 'node:fs';
+import {join,resolve} from 'node:path';
+import {setTimeout as delay} from 'node:timers/promises';
+import {docker,NGINX_IMAGE} from './supervisor-fixture.mjs';
+import {fixtureTargets,observedTargets} from './reset-fixture.mjs';
+import {createResetReview,reviewFingerprint,WRITERS,PROTECTED} from '../reset-targets.mjs';
+
+const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
+const invoke=(args,input)=>execFileSync('docker',args,{input,encoding:'utf8',windowsHide:true,timeout:180000,maxBuffer:8*1024*1024,stdio:['pipe','pipe','pipe']}).trim();
+export async function createRunnerHost(fixture,image){
+  const volume=fixture.project+'-control-proof';docker('volume','create',volume);fixture.volumes.push(volume);
+  const mountpoint=docker('volume','inspect',volume,'--format','{{.Mountpoint}}');
+  assert.match(mountpoint,/^\/var\/lib\/docker\/volumes\/[a-z0-9-]+\/_data$/);
+  const control=mountpoint+'/control',server=fixture.project+'-ssh-proof',serverImage=fixture.project+'-ssh-image';
+  const data=join(fixture.root,'data'),build=join(fixture.root,'ssh-build');mkdirSync(build);
+  const files=Object.fromEntries(['ca.pem','server.pem','server.key'].map(name=>['tls/'+name,readFileSync(join(fixture.root,'tls',name)).toString('base64')]));
+  files['control/demo-supervisor.sh']=readFileSync(resolve('scripts/demo/demo-supervisor.sh')).toString('base64');
+  files['dynamic/base.yml']=readFileSync(join(fixture.root,'dynamic/base.yml')).toString('base64');
+  const populate=source=>invoke(['run','--rm','-i','--user','0:0','--mount',`type=volume,src=${volume},dst=${mountpoint}`,image,'node','--input-type=module'],source);
+  populate(`import{mkdirSync,writeFileSync,chmodSync,copyFileSync,chownSync}from'node:fs';import{execFileSync}from'node:child_process';const root=${JSON.stringify(mountpoint)};for(const path of ['control','tls','dynamic','dynamic/rebyte-demo','client'])mkdirSync(root+'/'+path,{recursive:true});chmodSync(root,0o755);chmodSync(root+'/control',0o755);chmodSync(root+'/dynamic/rebyte-demo',0o700);for(const[path,bytes]of Object.entries(${JSON.stringify(files)}))writeFileSync(root+'/'+path,Buffer.from(bytes,'base64'));chmodSync(root+'/control/demo-supervisor.sh',0o755);for(const name of ['client-key','host-key'])execFileSync('ssh-keygen',['-q','-t','ed25519','-N','','-f',root+'/control/'+name],{stdio:'pipe'});copyFileSync(root+'/control/client-key',root+'/client/ssh-key');chmodSync(root+'/client',0o700);chownSync(root+'/client',10001,10001);chmodSync(root+'/client/ssh-key',0o400);chownSync(root+'/client/ssh-key',10001,10001);`);
+  const keyFingerprint=invoke(['run','--rm','--user','0:0','--mount',`type=volume,src=${volume},dst=${mountpoint}`,image,'ssh-keygen','-lf',control+'/client-key.pub']).split(/\s+/)[1];
+  const policy=[['PROJECT',fixture.project],['DOCKER','/usr/local/bin/docker'],['CURL','/usr/bin/curl'],['BACKEND_NETWORK',fixture.backend],['BACKEND_NETWORK_ID',docker('network','inspect',fixture.backend,'--format','{{.Id}}')],['PROXY_NETWORK',fixture.project+'-proxy'],['PROXY_NETWORK_ID',docker('network','inspect',fixture.project+'-proxy','--format','{{.Id}}')],['MAINTENANCE_IMAGE',NGINX_IMAGE],['DYNAMIC_DIRECTORY',mountpoint+'/dynamic/rebyte-demo'],['PROXY_HTTPS_PORT','8443'],['CA_FILE',mountpoint+'/tls/ca.pem']].map(([name,value])=>name+'='+value).join('\n')+'\n';
+  const targets=fixtureTargets(),accounts=Object.fromEntries(['buyer','seller','developer','admin'].map(role=>[role,{email:role+'@example.invalid',password:'fixture-'+role,username:'demo_'+role}]));
+  const review=createResetReview(targets,{...observedTargets(),bucketVersioning:'Disabled'},{codeSha256:hash(readFileSync('scripts/demo/demo-supervisor.sh')),policySha256:hash(policy),sshKeyFingerprint:keyFingerprint,backendNetworkId:docker('network','inspect',fixture.backend,'--format','{{.Id}}'),proxyNetworkId:docker('network','inspect',fixture.project+'-proxy','--format','{{.Id}}'),writers:WRITERS,protectedServices:PROTECTED});
+  const approval={decision:'approve',fingerprint:reviewFingerprint(review),approvedAt:new Date().toISOString()};
+  const config={accounts,aws:{accessKeyId:'fixture',secretAccessKey:'fixture-secret'},ssh:{keyFile:'/run/secrets/demo-reset/ssh-key',knownHostsFile:'/run/secrets/demo-reset/known_hosts'},mysql:{user:'root',password:'fixture'},mongo:{catalogUri:'mongodb+srv://catalog-demo:fixture@rebyte-dev.fixture.mongodb.net/catalog_demo',messagingUri:'mongodb+srv://messaging-demo:fixture@rebyte-dev.fixture.mongodb.net/messaging_demo'},rabbit:{user:'fixture',password:'fixture'},redisPassword:'fixture',meiliKey:'fixture-search-key-at-least-sixteen'};
+  const input={targets,review,approval,config};
+  const sshd=`Port 22\nHostKey ${control}/host-key\nAuthorizedKeysFile ${control}/authorized_keys\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nUsePAM no\nPermitRootLogin no\nAllowUsers rebyte-reset\nStrictModes yes\nPermitTTY no\nAllowTcpForwarding no\nAllowAgentForwarding no\nX11Forwarding no\n`;
+  const grant=[approval.fingerprint,review.control.codeSha256,review.control.policySha256].join(' ')+'\n';
+  populate(`import{writeFileSync,readFileSync,chmodSync,chownSync}from'node:fs';const root=${JSON.stringify(mountpoint)};for(const[name,text,mode]of ${JSON.stringify([['control/policy',policy,0o600],['control/approved',grant,0o600],['control/sshd_config',sshd,0o600],['client/config.json',JSON.stringify(input),0o400]])}){writeFileSync(root+'/'+name,text);chmodSync(root+'/'+name,mode);}writeFileSync(root+'/control/authorized_keys','restrict,command="'+root+'/control/demo-supervisor.sh" '+readFileSync(root+'/control/client-key.pub','utf8').trim()+String.fromCharCode(10));chmodSync(root+'/control/authorized_keys',0o644);writeFileSync(root+'/client/known_hosts','supervisor-fixture '+readFileSync(root+'/control/host-key.pub','utf8').trim()+String.fromCharCode(10));writeFileSync(root+'/client/ca.pem',readFileSync(root+'/tls/ca.pem'));for(const name of ['config.json','known_hosts','ca.pem']){chmodSync(root+'/client/'+name,0o400);chownSync(root+'/client/'+name,10001,10001);}`);
+  const sudoers='rebyte-reset ALL=(root) NOPASSWD: '+['status','maintenance-on','stop-writers','start-writers','maintenance-off'].map(action=>control+'/demo-supervisor.sh '+action).join(', ');
+  writeFileSync(join(build,'Dockerfile'),`FROM docker@sha256:6fae2214c3121a28d5aa639d09032f61310b7c9c75ffbad1025f261a1b621800 AS docker\nFROM ${image}\nUSER 0:0\nRUN apt-get update -qq && apt-get install -y --no-install-recommends openssh-server=1:9.2p1-2+deb12u10 sudo=1.9.13p3-1+deb12u4 curl && rm -rf /var/lib/apt/lists/* && mkdir -p /run/sshd && useradd --uid 20001 --home-dir /home/rebyte-reset --create-home --shell /bin/sh rebyte-reset && printf 'rebyte-reset:fixture-only-password\\n' | chpasswd\nCOPY --from=docker /usr/local/bin/docker /usr/local/bin/docker\nRUN printf '%s\\n' '${sudoers}' > /etc/sudoers.d/rebyte-demo && chmod 440 /etc/sudoers.d/rebyte-demo && visudo -cf /etc/sudoers.d/rebyte-demo\nCMD ["/usr/sbin/sshd","-D","-e","-f",${JSON.stringify(control+'/sshd_config')}]\n`);
+  invoke(['build','--platform','linux/amd64','-t',serverImage,build]);
+  docker('run','-d','--name',server,'--network',fixture.backend,'--network-alias','supervisor-fixture','--network-alias','api.rebyte.tech','--memory','256m','--mount',`type=volume,src=${volume},dst=${mountpoint}`,'--mount','type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock','-p','127.0.0.1::8443',serverImage);fixture.containers.push(server);
+  docker('network','connect',fixture.project+'-proxy',server);
+  docker('rm','-f',fixture.project+'-proxy');
+  const proxyImage='traefik@sha256:0f6150202bc1fed72a7bd2107460eaa510e5b8a905f3fdb5b84f2c8619c33368';
+  docker('run','-d','--name',fixture.project+'-proxy','--network','container:'+server,'--memory','96m','--mount',`type=bind,src=${mountpoint}/dynamic,dst=/dynamic,readonly`,'--mount',`type=bind,src=${mountpoint}/tls,dst=/tls,readonly`,proxyImage,'--entrypoints.https.address=:8443','--providers.file.directory=/dynamic','--providers.file.watch=true','--providers.providersThrottleDuration=100ms','--log.level=ERROR');
+  fixture.port=docker('port',server,'8443/tcp').split(':').at(-1);
+  const deadline=Date.now()+30000;
+  for(;;){try{if((await fixture.publicRequest('/users/me',{token:fixture.tokens.buyer})).status===200)break;}catch{}assert.ok(Date.now()<deadline,'native proxy did not become ready');await delay(200);}
+  const cloudName=fixture.project+'-cloud-proof';
+  writeFileSync(join(data,'cloud-config.json'),JSON.stringify({targets,accounts,tokens:fixture.tokens}));
+  writeFileSync(join(data,'cloud-server.mjs'),`import http from'node:http';import{readFileSync}from'node:fs';import{createCloudFixture}from'./aws-protocol-fixture.mjs';const fixture=createCloudFixture(JSON.parse(readFileSync('/fixture/cloud-config.json','utf8')));http.createServer(fixture.handle).listen(8089,'0.0.0.0');`);
+  writeFileSync(join(data,'aws-protocol-fixture.mjs'),readFileSync('scripts/demo/fixtures/aws-protocol-fixture.mjs'));
+  docker('run','-d','--name',cloudName,'--network',fixture.backend,'--network-alias','aws-fixture','--memory','128m','--mount',`type=bind,src=${data},dst=/fixture,readonly`,image,'node','/fixture/cloud-server.mjs');fixture.containers.push(cloudName);
+  return {input,volume,mountpoint,server,data,populate,async cleanup(){try{docker('rm','-f',fixture.project+'-proxy');}catch(error){if(!String(error.stderr).includes('No such container'))throw error;}await fixture.cleanup();try{docker('image','rm',serverImage);}catch{}}};
+}

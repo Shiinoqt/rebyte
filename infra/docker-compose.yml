@@ -1,0 +1,169 @@
+# Rebyte — infrastruttura di sviluppo.
+#
+# Questo file avvia SOLO i datastore. I servizi Spring girano sull'host
+# (./mvnw -pl <module> spring-boot:run) e si collegano a localhost.
+# Le stanze build: dei sette moduli si aggiungeranno quando avranno un pom
+# e un Dockerfile.
+#
+#   cp .env.example .env        # e sostituire le password
+#   docker compose -f infra/docker-compose.yml up -d --build
+#
+# Riferimenti a docs/architecture.md indicati come §n.
+
+name: rebyte
+
+services:
+
+  # ── MySQL: user_db, order_db, payment_db (§2b) ────────────────────────────
+  mysql:
+    image: mysql:8.4
+    container_name: rebyte-mysql
+    restart: "no"
+    # NB: MYSQL_DATABASE non è impostata di proposito — i tre schemi li crea
+    # mysql/init/01-schemas.sql, che assegna anche i grant a $MYSQL_USER.
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?serve MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_USER: ${MYSQL_USER:-rebyte}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?serve MYSQL_PASSWORD in .env}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # tiene MySQL nel budget ~400 MB di §11
+      - --innodb-buffer-pool-size=256M
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # gli script girano SOLO al primo avvio, su volume vuoto:
+      # dopo una modifica serve `docker compose down -v`
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── MongoDB: catalog_db, messaging_db ─────────────────────────────────────
+  # ⚠️ §2b — deve girare come replica set, altrimenti l'outbox transazionale
+  # di catalog/messaging non è atomico. Un nodo singolo basta.
+  mongo:
+    image: mongo:7
+    container_name: rebyte-mongo
+    restart: "no"
+    command:
+      - --replSet
+      - rs0
+      - --bind_ip_all
+      - --wiredTigerCacheSizeGB
+      - "0.25"
+    # ⚠️ La porta host deve restare 27017: il membro del replica set è
+    # dichiarato "localhost:27017" (vedi mongo-init) e mongod si riconosce
+    # come membro solo se quell'indirizzo corrisponde alla porta su cui
+    # ascolta. Rimapparla rompe sia l'auto-identificazione sia la topology
+    # discovery lato host. Se 27017 è occupata da un altro progetto, va
+    # liberata invece che aggirata.
+    ports:
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ── rs.initiate() una tantum, idempotente ─────────────────────────────────
+  # 🔴 Il membro è dichiarato "localhost:27017", NON "mongo:27017".
+  # Il driver Mongo fa topology discovery: si collega al seed, riceve la lista
+  # dei membri e si riconnette usando QUEGLI hostname. Con "mongo:27017" un'app
+  # che gira sull'host non risolve "mongo" e va in timeout, nonostante la porta
+  # sia pubblicata. Qui i servizi Spring girano sull'host, quindi "localhost".
+  # Quando i servizi si sposteranno dentro compose: re-inizializzare con
+  # "mongo:27017" (rs.reconfig, oppure `docker compose down -v`).
+  mongo-init:
+    image: mongo:7
+    container_name: rebyte-mongo-init
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["mongosh", "--host", "mongo", "--quiet", "--eval"]
+    # lista a un elemento: passato a --eval come singolo argomento, senza
+    # che compose provi a fare lo split shell della stringa
+    command:
+      - "try { rs.status(); print('replica set rs0 gia inizializzato'); }
+         catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]});
+                     print('replica set rs0 inizializzato'); }"
+
+  # ── Redis: cache, idempotency store, lock, rate limiting, presence (§6) ───
+  redis:
+    image: redis:7-alpine
+    container_name: rebyte-redis
+    restart: "no"
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── RabbitMQ: exchange marketplace.events (§5) ────────────────────────────
+  # Immagine costruita localmente: serve il plugin delayed-message per il
+  # webhook di pagamento simulato (§3). Vedi rabbitmq/Dockerfile.
+  #
+  # Exchange, code e binding di §5 NON si dichiarano qui: li crea Spring AMQP
+  # a runtime con i bean TopicExchange/Queue/Binding. La topologia è codice
+  # del servizio che la possiede, non configurazione infrastrutturale.
+  rabbitmq:
+    build:
+      context: ./rabbitmq
+    image: rebyte/rabbitmq:4.1-delayed
+    container_name: rebyte-rabbitmq
+    restart: "no"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-rebyte}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?serve RABBITMQ_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"        # AMQP
+      - "127.0.0.1:${RABBITMQ_MGMT_PORT:-15672}:15672" # management UI
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_port_connectivity"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # ── Meilisearch: read-model CQRS delle listing (§4) ───────────────────────
+  meilisearch:
+    image: getmeili/meilisearch:v1.53.2
+    container_name: rebyte-meilisearch
+    restart: "no"
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?serve MEILI_MASTER_KEY in .env}
+      # development abilita la dashboard su :7700; in produzione va "production"
+      MEILI_ENV: ${MEILI_ENV:-development}
+    ports:
+      - "127.0.0.1:${MEILI_PORT:-7700}:7700"
+    volumes:
+      - meili-data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mysql-data:
+  mongo-data:
+  redis-data:
+  rabbitmq-data:
+  meili-data:

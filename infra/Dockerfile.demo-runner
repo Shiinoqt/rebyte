@@ -1,0 +1,37 @@
+FROM public.ecr.aws/aws-cli/aws-cli@sha256:5d39fd52f236ed01c5c25fba66c9aebcfc6cbb88e7bb1b727c5fe1f150540597 AS aws
+FROM mysql@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242 AS mysql
+FROM mongo@sha256:1f995ad6fdb93244a1addab1b58f934a0bc2f5643c38e02f5e9d7f0c7d227a7b AS mongo
+FROM redis@sha256:4fa24486b8bcca8eec45ee0eb166edc674795e53a2b53d1a9ef263eecebaac85 AS redis
+FROM node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+RUN apt-get update -qq && apt-get install -y --no-install-recommends \
+    openssh-client=1:9.2p1-2+deb12u10 libssl3=3.0.22-1~deb12u1 \
+    libncurses6=6.4-4 ca-certificates=20250419~deb12u1 groff-base=1.22.4-10 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=aws /usr/local/aws-cli /usr/local/aws-cli
+RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws
+COPY --from=mysql /usr/bin/mysql /usr/local/bin/mysql
+COPY --from=mongo /usr/bin/mongosh /usr/local/bin/mongosh
+COPY --from=redis /usr/local/bin/redis-cli /usr/local/bin/redis-cli
+RUN printf '%s\n' \
+    '42b8b980f4c7c743397f194e1a02fb95b5cb1c9ea238396d83050592ff40bffa  /usr/local/aws-cli/v2/current/bin/aws' \
+    '8206bf76fe1f72ac7deca68c4f8dcca796473f4945af72a96479aadb658f69c8  /usr/local/bin/mysql' \
+    '6b39fa8b9fe0deb5ae5db469966da31bffd1dd8603726dc9aadcc1d2ff7dea70  /usr/local/bin/mongosh' \
+    '66e7a7d15e684d719c3ae2a55e013fc4e0df2b985ebdf45426e8d7eec1f328df  /usr/local/bin/redis-cli' | sha256sum -c -
+RUN node --version | grep -Fx v24.21.0 \
+    && aws --version 2>&1 | grep -F aws-cli/2.38.2 \
+    && mysql --version | grep -F '8.4.11' \
+    && mongosh --version | grep -Fx 2.12.0 \
+    && redis-cli --version | grep -Fx 'redis-cli 7.4.11' \
+    && ssh -V 2>&1 | grep -F OpenSSH_9.2p1 \
+    && AWS_PAGER='' aws help >/dev/null && mysql --help >/dev/null \
+    && mongosh --help >/dev/null && redis-cli --help >/dev/null
+WORKDIR /app
+COPY scripts/demo/ scripts/demo/
+RUN groupadd --gid 10001 demo-reset \
+    && useradd --uid 10001 --gid 10001 --home-dir /tmp --no-create-home --shell /bin/false demo-reset \
+    && mkdir -p /run/demo-reset && chown 10001:10001 /run/demo-reset
+ENV HOME=/tmp AWS_PAGER="" MONGOSH_DISABLE_TELEMETRY=1
+USER 10001:10001
+RUN ssh -V
+HEALTHCHECK --interval=30s --timeout=15s --start-period=30s --retries=3 CMD ["node","/app/scripts/demo/runner.mjs","--check"]
+CMD ["node","/app/scripts/demo/runner.mjs"]

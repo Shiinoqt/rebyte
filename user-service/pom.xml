@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>it.rebyte</groupId>
+    <artifactId>rebyte</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>user-service</artifactId>
+  <name>user-service</name>
+  <description>Profili, grafo dei follower, ruoli admin/developer, keyed dal claim Cognito sub</description>
+
+  <dependencies>
+    <!-- REST layer servlet/MVC (D-64: controller -> service -> repository) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- accesso a user_db -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+
+    <!-- driver JDBC per user_db; solo a runtime, mai referenziato dal codice -->
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!--
+      Coordinata esatta richiesta da Boot 4.x (01-RESEARCH.md P2.6): un
+      flyway-core nudo non fa piu scattare l'auto-configurazione delle
+      migrazioni in Boot 4 — solo lo starter la registra. FlywayBootstrapIT
+      e il test di fumo che dimostra che questo non e un problema silenzioso.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-flyway</artifactId>
+    </dependency>
+    <!-- planner-discipline-allow: flyway-core -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-mysql</artifactId>
+    </dependency>
+
+    <!-- validazione del JWT (D-12: il converter cognito:groups di commons e importato qui) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
+
+    <!-- @Size sui DTO in ingresso (D-62) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- health/metrics/prometheus (D-17: le gauge dell'outbox arriveranno nel piano 01-04) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!--
+      RabbitTemplate/RabbitAdmin/publisher-confirms per il relay dell'outbox
+      (D-14, D-18, D-24). Non era ancora dichiarata: il piano 01-01 aveva
+      preparato solo il registro Prometheus e i test Testcontainers
+      mysql/rabbitmq, non lo starter AMQP principale.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-amqp</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+
+    <!-- registry Prometheus per le gauge D-17 (wired ora per evitare un secondo edit del pom nel piano 01-04) -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+
+    <!--
+      01-RESEARCH.md A11 assumeva che omettere <version> facesse vincere quella
+      gia gestita transitivamente da spring-security-oauth2-jose. Verificato
+      empiricamente (dependency:tree + il POM di spring-security-oauth2-jose
+      7.1.1): non e cosi — Maven risolve una versione mancante solo tramite
+      dependencyManagement importato, non tramite il POM di una dipendenza
+      transitiva. spring-boot-dependencies non gestisce nimbus-jose-jwt.
+      Percio la versione e fissata qui esplicitamente, allineata byte-per-byte
+      a quella che spring-security-oauth2-jose porta gia in transitiva, cosi
+      non esiste una seconda copia versionata indipendentemente. Firma i token
+      del minter local-auth (D-26/D-27).
+    -->
+    <dependency>
+      <groupId>com.nimbusds</groupId>
+      <artifactId>nimbus-jose-jwt</artifactId>
+      <version>10.9.1</version>
+    </dependency>
+
+    <!--
+      Coordinata verificata per Boot 4.1 (01-RESEARCH.md R3): la riga 2.x
+      punta a Boot 3.x, una 2.x qui sarebbe sbagliata (D-69).
+    -->
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <version>${springdoc.version}</version>
+    </dependency>
+
+    <!-- mapping entita<->DTO, unmappedTargetPolicy=ERROR (D-66) -->
+    <dependency>
+      <groupId>org.mapstruct</groupId>
+      <artifactId>mapstruct</artifactId>
+      <version>${mapstruct.version}</version>
+    </dependency>
+
+    <!-- converter cognito:groups (D-12), costanti di messaging (D-25) -->
+    <dependency>
+      <groupId>it.rebyte</groupId>
+      <artifactId>commons</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      In Boot 4.x TestRestTemplate si e spostato in questo modulo separato
+      (org.springframework.boot.resttestclient.TestRestTemplate), non piu in
+      spring-boot-test — non e portato transitivamente da
+      spring-boot-starter-test. Serve per UserJitProvisioningIT, che ha
+      bisogno di un client HTTP reale (non MockMvc) per il caso di
+      concorrenza sullo stesso sub. spring-boot-resttestclient a sua volta
+      non porta transitivamente spring-boot-restclient (RestTemplateBuilder),
+      verificato con dependency:tree — va dichiarato esplicitamente o il
+      contesto Spring fallisce a startup con NoClassDefFoundError.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-resttestclient</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-restclient</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      Usato SOLO per due cose (Task 1, 01-06-PLAN.md): risoluzione delle
+      credenziali tramite la provider chain standard dell'SDK, e la
+      HeadObject/DeleteObject del passo di conferma (Task 3). NON per la
+      firma della POST policy: l'SDK per Java v2 non espone presigned-POST
+      affatto (confermato contro due issue GitHub aperte e non risolte,
+      aws/aws-sdk-java-v2#1493 dal 2019 e #6577/#6885) — la firma e quindi
+      manuale (S3PostPolicySigner, D-34 AMENDED). Coordinata e versione
+      verificate via fetch diretto di maven-metadata.xml su Maven Central
+      (non l'indice di ricerca), non tramite un indice che 01-RESEARCH.md
+      ha gia registrato in ritardo di 18 mesi su un altro artefatto di
+      questa stessa fase.
+    -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+      <version>2.54.15</version>
+    </dependency>
+
+    <!-- D-04 AdminGetUser email lookup; same SDK line as s3 above. -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>cognitoidentityprovider</artifactId>
+      <version>2.54.15</version>
+    </dependency>
+
+    <!-- @ServiceConnection per i container MySQL/RabbitMQ nei test *IT (D-23) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>mysql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- dichiarata ora anche se non ancora usata: il piano 01-04 non dovra riaprire questo pom -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>rabbitmq</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <!--
+            -parameters: i nomi dei parametri del costruttore canonico dei
+            record devono sopravvivere alla compilazione perche MapStruct
+            faccia il matching per nome, non posizionale (01-RESEARCH.md A10).
+          -->
+          <compilerArgs>
+            <arg>-parameters</arg>
+          </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.mapstruct</groupId>
+              <artifactId>mapstruct-processor</artifactId>
+              <version>${mapstruct.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+
+      <!-- *IT legate a verify, *Test a test (docs/testing-conventions.md) -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>

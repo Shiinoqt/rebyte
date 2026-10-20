@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>it.rebyte</groupId>
+    <artifactId>rebyte</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>api-gateway</artifactId>
+  <name>api-gateway</name>
+  <description>Spring Cloud Gateway: routing, JWT, rate limiting</description>
+
+  <dependencies>
+    <!--
+      Nella 5.x lo starter si chiama cosi: "spring-cloud-starter-gateway"
+      non esiste piu (404 su Maven Central).
+    -->
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
+    </dependency>
+
+    <!-- porta con se spring-cloud-starter-loadbalancer, che fa funzionare lb:// -->
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+
+    <!-- richiesto da RedisRateLimiter (docs/architecture.md §6, §7) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
+    </dependency>
+
+    <!-- attivo solo nei profili cognito / local-auth (§2c) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
+
+    <!-- /actuator/gateway/routes: unico modo di ispezionare la tabella di routing -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- SecurityMockServerConfigurers.mockJwt(): simula un chiamante autenticato
+         senza un IdP reale, per verificare che /internal/** resti negato dalla
+         rotta del gateway anche dopo che l'autenticazione e stata superata -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      RateLimitProblemJsonIT esaurisce un bucket Redis VERO: il difetto D-32
+      e un artefatto del commit della risposta, quindi un client mock-bound
+      darebbe verde comunque. Versioni dal BOM Testcontainers della radice,
+      pinnato a 1.21.4 — non alzarlo, la 2.0.5 ha tolto moduli usati qui.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>mongodb</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>rabbitmq</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-resttestclient</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-restclient</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>it.rebyte</groupId>
+      <artifactId>messaging-service</artifactId>
+      <version>${project.version}</version>
+      <classifier>plain</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>it.rebyte</groupId>
+      <artifactId>messaging-service</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+
+      <!-- *IT legate a verify, *Test a test (docs/testing-conventions.md) -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <!-- The real messaging fixture adds MVC to the test classpath. -->
+          <systemPropertyVariables>
+            <spring.main.web-application-type>reactive</spring.main.web-application-type>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <spring.main.web-application-type>reactive</spring.main.web-application-type>
+          </systemPropertyVariables>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>

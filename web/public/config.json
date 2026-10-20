@@ -1,0 +1,9 @@
+{
+  "apiBaseUrl": "http://localhost:8080",
+  "wsUrl": "ws://localhost:8080/ws",
+  "cognito": {
+    "region": "eu-south-1",
+    "userPoolId": "eu-south-1_WPMqs7BW8",
+    "userPoolClientId": "50q9qghk8nkr5shkfcfl7hlbh2"
+  }
+}

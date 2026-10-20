@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>it.rebyte</groupId>
+    <artifactId>rebyte</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>catalog-service</artifactId>
+  <name>catalog-service</name>
+  <description>Listing (hardware/software), categorie con attributi ereditati, proiezione di ricerca Meilisearch</description>
+
+  <properties>
+    <!-- Placeholder for Surefire/Failsafe late property replacement. -->
+    <argLine></argLine>
+  </properties>
+
+  <dependencies>
+    <!-- REST layer servlet/MVC, come user-service (non WebFlux: solo il gateway lo e) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- accesso a catalog_db (listing, category, outbox_event) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-mongodb</artifactId>
+    </dependency>
+
+    <!--
+      Client blocking, non -reactive: catalog-service e servlet MVC come
+      user-service, a differenza del gateway WebFlux. Cache-aside sull'albero
+      categorie e sui listing caldi (02-RESEARCH.md, Standard Stack).
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+
+    <!-- chiamata sincrona GET /internal/users/{sub} per il gate publish_software -->
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-openfeign</artifactId>
+    </dependency>
+
+    <!-- relay dell'outbox, indexer del consumer listing.* -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-amqp</artifactId>
+    </dependency>
+
+    <!-- validazione del JWT (gateway inoltra il token, catalog-service decide l'autorizzazione) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
+
+    <!-- @Valid sui DTO in ingresso -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- health/metrics/prometheus -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <version>${springdoc.version}</version>
+    </dependency>
+
+    <!-- mapping documento<->DTO, unmappedTargetPolicy=ERROR -->
+    <dependency>
+      <groupId>org.mapstruct</groupId>
+      <artifactId>mapstruct</artifactId>
+      <version>${mapstruct.version}</version>
+    </dependency>
+
+    <!-- DomainException, ProblemTypes, AbstractApiExceptionHandler, RebyteExchanges, CognitoGroupsAuthoritiesConverter -->
+    <dependency>
+      <groupId>it.rebyte</groupId>
+      <artifactId>commons</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!--
+      Presigned upload per le foto del listing (fino a 5, CAT-01), stessa
+      forma di S3PostPolicySigner/AvatarService in user-service. Dichiarata
+      ora anche se il primo consumatore reale e il piano 02-03, cosi questo
+      pom non va riaperto.
+    -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+      <version>2.54.15</version>
+    </dependency>
+
+    <!--
+      02-RESEARCH.md Standard Stack: coordinata verificata via fetch diretto
+      di maven-metadata.xml su Maven Central (non l'indice di ricerca).
+      Non sostituire con un'altra versione.
+    -->
+    <dependency>
+      <groupId>com.meilisearch.sdk</groupId>
+      <artifactId>meilisearch-java</artifactId>
+      <version>0.21.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      TestRestTemplate (Boot 4.x: modulo separato, non piu in
+      spring-boot-starter-test) per PublishToSearchTracerIT, che ha bisogno
+      di un client HTTP reale, non MockMvc, per esercitare l'intero percorso
+      HTTP -> Mongo -> RabbitMQ -> Meilisearch.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-resttestclient</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-restclient</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>mongodb</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>rabbitmq</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!--
+        Java 21+ limita l'attach dinamico degli agent. Mockito inline deve
+        quindi partire come javaagent esplicito; dependency:properties
+        risolve il jar alla versione gestita dal BOM di Spring Boot.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>properties</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <!--
+            -parameters: i nomi dei parametri del costruttore canonico dei
+            record devono sopravvivere alla compilazione perche MapStruct
+            faccia il matching per nome, non posizionale (stesso vincolo di
+            user-service/pom.xml, 01-RESEARCH.md A10).
+          -->
+          <compilerArgs>
+            <arg>-parameters</arg>
+          </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.mapstruct</groupId>
+              <artifactId>mapstruct-processor</artifactId>
+              <version>${mapstruct.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+
+      <!-- *IT legate a verify, *Test a test (docs/testing-conventions.md) -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>

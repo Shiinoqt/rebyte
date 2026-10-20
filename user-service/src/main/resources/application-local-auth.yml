@@ -1,0 +1,15 @@
+# Profilo di solo sviluppo (D-26, D-29): user-service e sia il resource
+# server che il proprio issuer. issuer-uri deve combaciare byte-per-byte con
+# quello che api-gateway/src/main/resources/application-local-auth.yml si
+# aspetta (http://localhost:8081/ di default) — un disallineamento fa
+# fallire con 401 ogni test di integrazione locale.
+#
+# LocalAuthTokenController legge questa stessa property per il claim `iss`
+# dei token che emette, cosi il minter e il resource server non possono
+# disallinearsi: sono la stessa configurazione letta due volte.
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${USER_SERVICE_ISSUER:http://localhost:8081/}

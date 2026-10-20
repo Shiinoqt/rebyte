@@ -1,0 +1,38 @@
+{
+  "eventType": "Bounce",
+  "bounce": {
+    "feedbackId": "0100019a0000-bounce-permanent-000000",
+    "bounceType": "Permanent",
+    "bounceSubType": "General",
+    "bouncedRecipients": [
+      {
+        "emailAddress": "Bounced.One@Example.TEST",
+        "action": "failed",
+        "status": "5.1.1",
+        "diagnosticCode": "smtp; 550 5.1.1 user unknown"
+      },
+      {
+        "emailAddress": "  second.bounced@EXAMPLE.test ",
+        "action": "failed",
+        "status": "5.1.1",
+        "diagnosticCode": "smtp; 550 5.1.1 mailbox does not exist"
+      }
+    ],
+    "timestamp": "2026-10-01T10:00:05.000Z",
+    "reportingMTA": "dns; mta.example.test"
+  },
+  "mail": {
+    "timestamp": "2026-10-01T10:00:00.000Z",
+    "source": "no-reply@example.test",
+    "sendingAccountId": "123456789012",
+    "messageId": "ses-message-bounce-permanent-0001",
+    "destination": [
+      "Bounced.One@Example.TEST",
+      "second.bounced@example.test"
+    ],
+    "headersTruncated": false,
+    "tags": {
+      "ses:configuration-set": ["rebyte-transactional"]
+    }
+  }
+}

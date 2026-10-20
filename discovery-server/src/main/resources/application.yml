@@ -1,0 +1,22 @@
+server:
+  port: ${DISCOVERY_PORT:8761}
+
+spring:
+  application:
+    name: discovery-server
+
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    # Standalone: il server non registra se stesso e non scarica un registry
+    # da peer che non esistono. Senza questo, all'avvio ritenta in loop.
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+  server:
+    # In sviluppo: senza, un servizio fermato resta nel registry per minuti
+    # e il debug diventa fuorviante. In produzione va rimesso a true.
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 5000

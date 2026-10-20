@@ -1,0 +1,10 @@
+{
+  "apiBaseUrl": "https://api.rebyte.tech",
+  "wsUrl": "wss://api.rebyte.tech/ws",
+  "cognito": {
+    "region": "eu-south-1",
+    "userPoolId": "eu-south-1_tG4BJNs2r",
+    "userPoolClientId": "1fvpct0cb1ui35rhmp54qesrrf"
+  },
+  "demoCheckoutEnabled": true
+}

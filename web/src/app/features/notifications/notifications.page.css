@@ -1,0 +1,30 @@
+:host { display: block; color: var(--ink); font-family: var(--font-ui); }
+.notification-center { box-sizing: border-box; width: 100%; max-width: 680px; margin-inline: auto; padding-bottom: var(--space-xl); }
+.notification-heading { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
+.notification-heading h1 { margin: 0; font-size: var(--text-display); line-height: var(--leading-heading); }
+.notification-toolbar { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin: var(--space-lg) 0 var(--space-md); }
+.notification-toolbar button, .notification-actions button { min-height: 44px; border: 0; background: transparent; color: var(--primary); cursor: pointer; font: inherit; font-size: var(--text-caption); padding: var(--space-xs); }
+button:disabled { cursor: not-allowed; opacity: .48; }
+.notification-toolbar .mark-all-read { display: inline-grid; place-items: center; min-width: 44px; }
+.mark-all-read svg { width: 21px; height: 21px; }
+app-load-more { display: block; margin-top: var(--space-lg); }
+.notification-list { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface); }
+.notification-row { display: flex; align-items: flex-start; gap: var(--space-md); padding: var(--space-md); border-bottom: 1px solid var(--border); }
+.notification-row:last-child { border-bottom: 0; }
+.notification-row.unread { background: var(--surface-sunken); }
+.notification-row.unread::before { content: ''; align-self: center; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+.notification-icon { display: grid; flex: none; place-items: center; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--primary-soft); color: var(--primary); }
+.notification-icon svg { width: 21px; height: 21px; }
+.notification-body { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.notification-body a { color: var(--ink); text-decoration: none; font-weight: var(--weight-semibold); }
+.notification-body a:hover { color: var(--primary); text-decoration: underline; }
+.notification-body time, .notification-body small { display: block; margin-top: var(--space-xs); color: var(--text-muted); font-size: var(--text-caption); }
+.notification-actions { display: flex; flex: none; flex-direction: column; align-items: flex-end; }
+.email-preferences { display: inline-flex; align-items: center; gap: var(--space-xs); margin-left: auto; min-height: var(--hit-min); color: var(--primary); font-size: var(--text-caption); text-decoration: none; }
+.email-preferences svg { width: 18px; height: 18px; flex: none; }
+.email-preferences:hover { text-decoration: underline; }
+.email-preferences:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (max-width: 640px) { .notification-row { flex-wrap: wrap; } .notification-actions { width: 100%; align-items: flex-end; } .notification-toolbar button, .notification-actions button { min-height: 44px; } }
+.notification-actions .icon-action { display: inline-grid; place-items: center; min-width: 44px; color: var(--text-muted); }
+.notification-actions .icon-action:hover { color: var(--danger); }
+.notification-actions .icon-action:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

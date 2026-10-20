@@ -1,0 +1,300 @@
+:host {
+  display: block;
+  font-family: var(--font-ui);
+  min-width: 0;
+}
+button {
+  min-height: var(--hit-min);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  transition:
+    background var(--motion-fast) var(--ease),
+    border-color var(--motion-fast) var(--ease);
+}
+button:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+h2 {
+  margin: 0;
+  font-size: var(--text-heading);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-heading);
+  overflow-wrap: anywhere;
+}
+p {
+  overflow-wrap: anywhere;
+}
+:host(.state) {
+  padding: var(--space-xl);
+  text-align: center;
+  color: var(--text-muted);
+}
+:host(.state) h2 {
+  color: var(--ink);
+}
+:host([data-ui='banner']) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-md);
+  background: var(--primary-tint);
+  color: var(--primary-strong);
+  overflow-wrap: anywhere;
+}
+.banner-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+}
+.banner-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.banner-text {
+  flex: 1;
+  min-width: 0;
+}
+:host([data-kind='warning']) {
+  background: var(--surface);
+  color: var(--warning);
+  border-color: var(--border);
+}
+:host([data-kind='error']) {
+  background: var(--danger-soft);
+  color: var(--danger-strong);
+  border-color: var(--danger-border);
+}
+.primary {
+  background: var(--primary);
+  color: var(--text-on-primary);
+  border-color: var(--primary);
+}
+.primary:hover {
+  background: var(--primary-strong);
+}
+.secondary {
+  border-color: var(--ink);
+}
+.secondary:hover {
+  background: var(--ink);
+  color: var(--text-on-primary);
+}
+.danger {
+  background: var(--danger);
+  color: var(--text-on-primary);
+  border-color: var(--danger);
+}
+.danger:hover {
+  background: var(--danger-strong);
+}
+.danger-outline {
+  color: var(--danger-strong);
+  border-color: var(--danger);
+}
+.link {
+  border-color: var(--surface);
+  color: var(--primary);
+  text-decoration: underline;
+}
+.reason {
+  margin: var(--space-sm) 0 0;
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+.spinner {
+  display: inline-block;
+  width: var(--space-md);
+  height: var(--space-md);
+  margin-right: var(--space-sm);
+  border: 2px solid currentColor;
+  border-bottom-color: var(--primary-strong);
+  border-radius: var(--radius-round);
+  animation: spin calc(var(--motion-toast) * 4) linear infinite;
+}
+.skeleton-image,
+.skeleton-line,
+.skeleton-avatar {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--stripe-a),
+    var(--stripe-a) var(--space-sm),
+    var(--stripe-b) var(--space-sm),
+    var(--stripe-b) var(--space-md)
+  );
+  border-radius: var(--radius-lg);
+}
+.skeleton-card .skeleton-image {
+  aspect-ratio: 5 / 4;
+}
+.skeleton-card .skeleton-line.short {
+  width: 65%;
+  min-height: calc(var(--text-caption) * var(--leading-body));
+  margin-top: var(--space-xs);
+}
+.skeleton-line {
+  min-height: calc(var(--text-body-size) * var(--leading-body));
+  margin-top: var(--space-sm);
+}
+.skeleton-avatar {
+  width: var(--control-md);
+  aspect-ratio: 1;
+  border-radius: var(--radius-round);
+}
+.skeleton-avatar > *,
+.skeleton-line > * {
+  display: none;
+}
+:host(.toast) {
+  position: fixed;
+  z-index: var(--z-toast);
+  bottom: calc(var(--space-lg) + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  width: max-content;
+  max-width: calc(100% - var(--gutter) * 2);
+}
+/* Cards share one grid cell so an outgoing toast crossfades under its successor. */
+.toast-row {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-md);
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: var(--text-on-primary);
+  box-shadow: var(--shadow-md);
+}
+.toast-enter {
+  animation: toast-in var(--motion-toast) var(--ease);
+}
+.toast-leave {
+  pointer-events: none;
+  animation: toast-in var(--motion-toast) var(--ease) reverse forwards;
+}
+:host(.toast) > .toast-region {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.toast-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  margin-right: var(--space-sm);
+  color: var(--primary-border);
+}
+.toast-icon[data-kind='error'] {
+  color: var(--danger-border);
+}
+.toast-icon svg,
+.toast-close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.toast-region {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.toast-text {
+  font-weight: var(--weight-semibold);
+}
+.toast-controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-left: var(--space-sm);
+}
+.toast-controls button {
+  min-height: var(--hit-min);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-on-primary);
+  cursor: pointer;
+}
+.toast-action {
+  padding: 0 var(--space-md);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+}
+.toast-close {
+  display: grid;
+  place-items: center;
+  width: var(--hit-min);
+  padding: 0;
+}
+.toast-controls button:hover {
+  background: var(--text-body);
+}
+.toast-controls button:focus-visible {
+  outline: 2px solid var(--primary-border);
+  outline-offset: -2px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-sm));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 640px) {
+  :host(.toast) {
+    bottom: calc(var(--tabbar-height) + var(--space-md) + env(safe-area-inset-bottom));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner,
+  :host(.toast) {
+    animation: none;
+  }
+}
