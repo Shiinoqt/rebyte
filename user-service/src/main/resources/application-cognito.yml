@@ -1,0 +1,19 @@
+# Profilo di deployment (D-04). Byte-identico nella struttura a
+# api-gateway/src/main/resources/application-cognito.yml: cambia solo il
+# servizio che lo legge.
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://cognito-idp.${AWS_REGION}.amazonaws.com/${COGNITO_USER_POOL_ID}
+
+# D-69: la explorer interattiva (Swagger UI) e disattivata sotto il profilo
+# di deployment — il budget di memoria e gia segnalato come ottimistico
+# (D-65) e i suoi asset statici sono puro overhead in un deployment che
+# nessuno naviga. L'endpoint del documento (/v3/api-docs) resta invece
+# attivo: la fase 6 genera un client da questo documento e la fase 7 ne
+# aggrega cinque dietro il gateway.
+springdoc:
+  swagger-ui:
+    enabled: false

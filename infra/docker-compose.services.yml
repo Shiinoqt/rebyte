@@ -1,0 +1,301 @@
+services:
+  mysql-app:
+    image: mysql:8.4
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in infra/.env}
+      MYSQL_USER: ${MYSQL_USER:-rebyte}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in infra/.env}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=256M
+    volumes:
+      - mysql-app-data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  discovery-server:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.service
+      args:
+        SERVICE_MODULE: discovery-server
+    restart: "no"
+    hostname: discovery-server
+    ports:
+      - "127.0.0.1:${DISCOVERY_HOST_PORT:-8761}:8761"
+
+  user-service:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.service
+      args:
+        SERVICE_MODULE: user-service
+    restart: "no"
+    hostname: user-service
+    depends_on:
+      discovery-server:
+        condition: service_started
+      mysql-app:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${REBYTE_AUTH_PROFILE:-local-auth}
+      AWS_REGION: ${AWS_REGION:-eu-south-1}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:-}
+      USER_SERVICE_ISSUER: http://user-service:8081/
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      MYSQL_HOST: mysql-app
+      MYSQL_USER: ${MYSQL_USER:-rebyte}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in infra/.env}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-rebyte}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in infra/.env}
+      MEDIA_BUCKET: ${MEDIA_BUCKET:?Set MEDIA_BUCKET in infra/.env}
+      MEDIA_REGION: ${MEDIA_REGION:-eu-south-1}
+      MEDIA_DISTRIBUTION_DOMAIN: ${MEDIA_DISTRIBUTION_DOMAIN:?Set MEDIA_DISTRIBUTION_DOMAIN in infra/.env}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      LOCAL_AUTH_TEST_EMAIL: ${LOCAL_AUTH_TEST_EMAIL:-}
+    ports:
+      - "127.0.0.1:${USER_HOST_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  catalog-service:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.service
+      args:
+        SERVICE_MODULE: catalog-service
+    restart: "no"
+    hostname: catalog-service
+    depends_on:
+      discovery-server:
+        condition: service_started
+      mongo-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${REBYTE_AUTH_PROFILE:-local-auth}
+      AWS_REGION: ${AWS_REGION:-eu-south-1}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:-}
+      USER_SERVICE_ISSUER: http://user-service:8081/
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      MONGO_URI: mongodb://mongo:27017/catalog_db?replicaSet=rs0&directConnection=true
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-rebyte}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in infra/.env}
+      MEILI_URL: http://meilisearch:7700
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?Set MEILI_MASTER_KEY in infra/.env}
+      MEDIA_BUCKET: ${MEDIA_BUCKET:?Set MEDIA_BUCKET in infra/.env}
+      MEDIA_REGION: ${MEDIA_REGION:-eu-south-1}
+      MEDIA_DISTRIBUTION_DOMAIN: ${MEDIA_DISTRIBUTION_DOMAIN:?Set MEDIA_DISTRIBUTION_DOMAIN in infra/.env}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      CATALOG_AWS_ACCESS_KEY_ID: ${CATALOG_AWS_ACCESS_KEY_ID:-}
+      CATALOG_AWS_SECRET_ACCESS_KEY: ${CATALOG_AWS_SECRET_ACCESS_KEY:-}
+    ports:
+      - "127.0.0.1:${CATALOG_HOST_PORT:-8082}:8082"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  order-service:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.service
+      args:
+        SERVICE_MODULE: order-service
+    restart: "no"
+    hostname: order-service
+    depends_on:
+      discovery-server:
+        condition: service_started
+      mysql-app:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${REBYTE_AUTH_PROFILE:-local-auth}
+      AWS_REGION: ${AWS_REGION:-eu-south-1}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:-}
+      USER_SERVICE_ISSUER: http://user-service:8081/
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      MYSQL_HOST: mysql-app
+      MYSQL_USER: ${MYSQL_USER:-rebyte}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in infra/.env}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-rebyte}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in infra/.env}
+      OFFER_HOLD_DURATION: ${OFFER_HOLD_DURATION:-PT24H}
+    ports:
+      - "127.0.0.1:${ORDER_HOST_PORT:-8084}:8084"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8084/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  payment-service:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.service
+      args:
+        SERVICE_MODULE: payment-service
+    restart: "no"
+    hostname: payment-service
+    depends_on:
+      discovery-server:
+        condition: service_started
+      mysql-app:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${REBYTE_AUTH_PROFILE:-local-auth}
+      AWS_REGION: ${AWS_REGION:-eu-south-1}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:-}
+      USER_SERVICE_ISSUER: http://user-service:8081/
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      MYSQL_HOST: mysql-app
+      MYSQL_USER: ${MYSQL_USER:-rebyte}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in infra/.env}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-rebyte}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in infra/.env}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
+      PAYPAL_WEBHOOK_ID: ${PAYPAL_WEBHOOK_ID:-}
+      CHECKOUT_RETURN_BASE_URL: ${CHECKOUT_RETURN_BASE_URL:-https://example.invalid}
+    ports:
+      - "127.0.0.1:${PAYMENT_HOST_PORT:-8085}:8085"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8085/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  messaging-service:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.service
+      args:
+        SERVICE_MODULE: messaging-service
+    restart: "no"
+    hostname: messaging-service
+    depends_on:
+      discovery-server:
+        condition: service_started
+      mongo-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${REBYTE_AUTH_PROFILE:-local-auth}
+      AWS_REGION: ${AWS_REGION:-eu-south-1}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:-}
+      USER_SERVICE_ISSUER: http://user-service:8081/
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      MONGO_URI: mongodb://mongo:27017/messaging_db?replicaSet=rs0&directConnection=true
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-rebyte}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in infra/.env}
+      MEDIA_BUCKET: ${MEDIA_BUCKET:?Set MEDIA_BUCKET in infra/.env}
+      MEDIA_REGION: ${MEDIA_REGION:-eu-south-1}
+      # D-36: messaging-service uses its own IAM user and never receives the shared AWS_* keys.
+      MESSAGING_AWS_ACCESS_KEY_ID: ${MESSAGING_AWS_ACCESS_KEY_ID:?Set MESSAGING_AWS_ACCESS_KEY_ID in infra/.env}
+      MESSAGING_AWS_SECRET_ACCESS_KEY: ${MESSAGING_AWS_SECRET_ACCESS_KEY:?Set MESSAGING_AWS_SECRET_ACCESS_KEY in infra/.env}
+      SES_REGION: ${SES_REGION:-eu-south-1}
+      SES_FROM_ADDRESS: ${SES_FROM_ADDRESS:-}
+      SES_CONFIGURATION_SET: ${SES_CONFIGURATION_SET:-rebyte-transactional}
+      SES_EVENTS_ENABLED: ${SES_EVENTS_ENABLED:-false}
+      SES_EVENTS_QUEUE_URL: ${SES_EVENTS_QUEUE_URL:-}
+      MESSAGING_UNSUBSCRIBE_SECRET: ${MESSAGING_UNSUBSCRIBE_SECRET:?Set MESSAGING_UNSUBSCRIBE_SECRET (>= 32 bytes) in infra/.env}
+      # An empty variable would override the application default, so non-secret settings repeat it here.
+      MESSAGING_WEB_BASE_URL: ${MESSAGING_WEB_BASE_URL:-http://localhost:4200}
+      MESSAGING_PUBLIC_API_URL: ${MESSAGING_PUBLIC_API_URL:-http://localhost:8080}
+      MESSAGING_WS_ALLOWED_ORIGINS: ${SPA_ALLOWED_ORIGINS:-http://localhost:4200}
+      MESSAGING_EMAIL_NEW_MESSAGE_WINDOW: ${MESSAGING_EMAIL_NEW_MESSAGE_WINDOW:-PT15M}
+      MESSAGING_SES_MIN_SEND_INTERVAL_MS: ${MESSAGING_SES_MIN_SEND_INTERVAL_MS:-1100}
+    ports:
+      - "127.0.0.1:${MESSAGING_HOST_PORT:-8083}:8083"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.service
+      args:
+        SERVICE_MODULE: api-gateway
+    restart: "no"
+    hostname: api-gateway
+    depends_on:
+      discovery-server:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      messaging-service:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${REBYTE_AUTH_PROFILE:-local-auth}
+      AWS_REGION: ${AWS_REGION:-eu-south-1}
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID:-}
+      USER_SERVICE_ISSUER: http://user-service:8081/
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      REDIS_HOST: redis
+      # The gateway CORS list and the messaging WebSocket origin list share SPA_ALLOWED_ORIGINS on purpose so they cannot drift.
+      GATEWAY_CORS_ALLOWED_ORIGINS: ${SPA_ALLOWED_ORIGINS:-http://localhost:4200}
+    ports:
+      - "${GATEWAY_HOST_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+volumes:
+  mysql-app-data:

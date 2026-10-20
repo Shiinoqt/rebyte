@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.1.1</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>it.rebyte</groupId>
+  <artifactId>rebyte</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>rebyte</name>
+  <description>Marketplace hardware/software di seconda mano</description>
+
+  <!-- Register each service after its POM exists so reactor discovery remains valid. -->
+  <modules>
+    <module>discovery-server</module>
+    <module>api-gateway</module>
+    <module>it.rebyte.commons</module>
+    <module>user-service</module>
+    <module>catalog-service</module>
+    <module>order-service</module>
+    <module>payment-service</module>
+    <module>messaging-service</module>
+  </modules>
+
+  <properties>
+    <java.version>26</java.version>
+    <spring-cloud.version>2025.1.3</spring-cloud.version>
+    <mapstruct.version>1.6.3</mapstruct.version>
+    <springdoc.version>3.1.1</springdoc.version>
+    <!--
+      BOM 2.0.5 e core testcontainers/junit-jupiter, MA non gestisce piu
+      i moduli mysql/rabbitmq (rimossi dalla linea 2.x). Verificato via
+      fetch diretto di entrambi i POM su Maven Central (01-RESEARCH.md
+      §"Testcontainers versioning caveat"): la 1.21.4 e l'ultima BOM che
+      gestisce testcontainers/junit-jupiter/mysql/rabbitmq in modo coerente
+      sulla stessa riga di versione. Confermato con
+      `./mvnw -pl user-service dependency:tree -Dincludes=org.testcontainers`.
+    -->
+    <testcontainers.version>1.21.4</testcontainers.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-dependencies</artifactId>
+        <version>${spring-cloud.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>${testcontainers.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+</project>

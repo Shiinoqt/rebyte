@@ -1,0 +1,239 @@
+server:
+  port: ${GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  webflux:
+    problemdetails:
+      enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  cloud:
+    gateway:
+      server:
+        # ⚠️ Prefisso obbligatorio dalla 5.x. Il vecchio spring.cloud.gateway.routes
+        # non da errore: il gateway parte semplicemente con ZERO route.
+        webflux:
+          trusted-proxies: ${GATEWAY_TRUSTED_PROXIES:}
+          # /internal/**: chiamate Feign fra servizi (§3b, §7c), non autorizzate
+          # a livello di servizio perche si fidano della rete interna. Il
+          # gateway pero le nega esplicitamente — rotta ordinata prima di
+          # tutte le altre, piu denyAll nella security chain (D-56) — perche
+          # l'assenza di rotta da sola e una proprieta che sparisce al primo
+          # riordino o catch-all, non una difesa su cui contare.
+          routes:
+            - id: internal-deny
+              uri: no://op
+              order: -200
+              predicates:
+                - Path=/internal/**
+              filters:
+                - SetStatus=403
+
+            - id: user-service
+              uri: lb://user-service
+              predicates:
+                - Path=/users/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@ipKeyResolver}"
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    throw-on-limit: true
+
+            - id: catalog-service
+              uri: lb://catalog-service
+              predicates:
+                - Path=/listings/**,/categories/**,/favourites/**,/search/**,/admin/search/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@ipKeyResolver}"
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    throw-on-limit: true
+
+            - id: messaging-service
+              uri: lb://messaging-service
+              predicates:
+                - Path=/conversations/**,/messages/**,/notifications/**,/admin/messaging/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@ipKeyResolver}"
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    throw-on-limit: true
+
+            # Il browser non puo impostare l'header Authorization su una
+            # WebSocket: il gateway inoltra l'upgrade senza token e
+            # messaging-service autentica il frame STOMP CONNECT. Il limiter
+            # per IP frena le tempeste di riconnessione.
+            - id: messaging-ws
+              uri: lb:ws://messaging-service
+              predicates:
+                - Path=/ws/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@ipKeyResolver}"
+                    redis-rate-limiter.replenishRate: 2
+                    redis-rate-limiter.burstCapacity: 10
+                    redis-rate-limiter.requestedTokens: 1
+                    throw-on-limit: true
+
+            - id: order-service
+              uri: lb://order-service
+              predicates:
+                - Path=/orders/**,/admin/orders/**,/admin/problems/**,/licences/**,/reviews/**,/offers/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@ipKeyResolver}"
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    throw-on-limit: true
+
+            - id: payment-webhook
+              uri: lb://payment-service
+              order: -100
+              predicates:
+                - Path=/payments/webhook
+                - Method=POST
+
+            - id: order-offer-create
+              uri: lb://order-service
+              order: -50
+              predicates:
+                - Path=/offers
+                - Method=POST
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@subKeyResolver}"
+                    redis-rate-limiter.replenishRate: 1
+                    redis-rate-limiter.burstCapacity: 60
+                    redis-rate-limiter.requestedTokens: 6
+                    throw-on-limit: true
+
+            # Anti-spam sulle scritture di chat (D-37): ogni invio costa 2 token,
+            # quindi un utente puo inviare 15 messaggi a raffica e poi uno ogni
+            # 2 secondi. Il limite e per sub: le letture restano sulla rotta
+            # messaging-service con il limiter per IP.
+            - id: messaging-chat-write
+              uri: lb://messaging-service
+              order: -50
+              predicates:
+                - Path=/conversations,/conversations/*/messages,/messages/image-upload-policy
+                - Method=POST
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@subKeyResolver}"
+                    redis-rate-limiter.replenishRate: 1
+                    redis-rate-limiter.burstCapacity: 30
+                    redis-rate-limiter.requestedTokens: 2
+                    throw-on-limit: true
+
+            # La lista recensioni di un utente vive sotto /users ma appartiene a
+            # order-service: l'order piu basso fa vincere questa rotta su
+            # user-service (Path=/users/**), che altrimenti la intercetterebbe.
+            - id: order-user-reviews
+              uri: lb://order-service
+              order: -50
+              predicates:
+                - Path=/users/*/reviews
+                - Method=GET
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@ipKeyResolver}"
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    throw-on-limit: true
+
+            # The public check is debounced by the SPA; a tight per-IP bucket bounds enumeration.
+            - id: user-username-available
+              uri: lb://user-service
+              order: -50
+              predicates:
+                - Path=/users/username-available
+                - Method=GET
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@ipKeyResolver}"
+                    redis-rate-limiter.replenishRate: 3
+                    redis-rate-limiter.burstCapacity: 12
+                    redis-rate-limiter.requestedTokens: 1
+                    throw-on-limit: true
+
+            # The path lives under /users, but catalog owns it and must win over user-service.
+            - id: catalog-user-listings
+              uri: lb://catalog-service
+              order: -50
+              predicates:
+                - Path=/users/*/listings
+                - Method=GET
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@ipKeyResolver}"
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    throw-on-limit: true
+
+            - id: payment-service
+              uri: lb://payment-service
+              predicates:
+                - Path=/payments/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@ipKeyResolver}"
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+                    redis-rate-limiter.requestedTokens: 1
+                    throw-on-limit: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+
+management:
+  endpoint:
+    gateway:
+      # in Boot 4 e "access", non piu "enabled"
+      access: read-only
+  endpoints:
+    web:
+      exposure:
+        include: gateway,health
+
+rebyte:
+  cors:
+    # Keep this allowlist aligned with MESSAGING_WS_ALLOWED_ORIGINS.
+    allowed-origins: ${GATEWAY_CORS_ALLOWED_ORIGINS:http://localhost:4200}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: demo
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

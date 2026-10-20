@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>it.rebyte</groupId>
+    <artifactId>rebyte</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>commons</artifactId>
+  <name>it.rebyte.commons</name>
+  <description>Libreria condivisa: converter di autorita, costanti di messaging, error handling (D-12, D-13)</description>
+
+  <!--
+    packaging jar, non uno starter Spring Boot: niente spring-boot-maven-plugin
+    e niente META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports.
+    Ogni servizio consumatore importa esplicitamente le classi con @Import (D-12) —
+    cosi cio che e attivo resta visibile in un artefatto che deve essere spiegabile.
+  -->
+  <packaging>jar</packaging>
+
+  <dependencies>
+    <!-- Only the two media consumers need the SDK credential types. -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>auth</artifactId>
+      <version>2.54.15</version>
+      <optional>true</optional>
+    </dependency>
+    <!-- fornisce i tipi Jwt / JwtAuthenticationToken usati dal converter cognito:groups -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
+
+    <!-- fornisce ResponseEntityExceptionHandler, la base che la fase 01-03 estendera qui -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      Solo di test: AbstractApiExceptionHandlerTest deve esercitare
+      davvero il meccanismo @Valid -> MethodArgumentNotValidException per
+      provare l'estensione errors del ProblemDetail (D-30). La classe di
+      produzione non referenzia jakarta.validation — solo tipi Spring Web
+      gia portati da spring-boot-starter-web.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+</project>

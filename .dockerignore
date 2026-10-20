@@ -1,0 +1,11 @@
+.git
+.planning
+.codex
+.claude
+.agents
+**/target
+**/__pycache__
+infra/.env
+postman
+docs
+scripts

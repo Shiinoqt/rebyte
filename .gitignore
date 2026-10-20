@@ -1,0 +1,100 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Ambiente locale — MAI committare ###
+# infra/.env contiene le password dei datastore e, in futuro, le chiavi AWS.
+# infra/.env.example resta invece versionato: e il template per ricrearlo.
+.env
+*.env.local
+
+### Visual Paradigm ###
+# file di lavoro dell'IDE di modellazione, non i progetti .vpp
+.vpprefdata/
+*.lck
+.lock
+*.vpp.bak_*
+
+### Obsidian ###
+.obsidian/
+
+### OS ###
+.DS_Store
+Thumbs.db
+
+### GSD session artifacts ###
+# Keep plans, handoffs, resume notes and discussion checkpoints for recovery.
+# Derived state, process locks and runtime caches are machine-local.
+.planning/state.json
+.planning/milestone.lock
+.gsd/
+.codebase-memory/
+
+### Claude Code ###
+# Generated GSD files are restored by scripts/ai/setup.sh.
+# Share instructions, settings and project-specific skills.
+.claude/*
+!.claude/CLAUDE.md
+!.claude/settings.json
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/sketch-findings-rebyte/
+!.claude/skills/codebase-memory/
+.claude/settings.local.json
+
+### Codex ###
+# Generated agents, hooks and commands stay local; shared settings are portable.
+.codex/*
+!.codex/config.toml
+.agents/*
+!.agents/skills/
+
+### Local credentials and caches ###
+.env.*
+!.env.example
+!.env.*.example
+.aws/
+.mcp.local.json
+*.pem
+*.key
+!payment-service/src/test/resources/webhook/test-cert.pem
+!payment-service/src/test/resources/webhook/test-key.pem
+
+### Postman ###
+# L'environment locale contiene i token: mai versionato.
+/postman/local.postman_environment.json
+# Report generati da postman-cli a ogni run.
+postman-cli-reports/
+
+### Python ###
+__pycache__/

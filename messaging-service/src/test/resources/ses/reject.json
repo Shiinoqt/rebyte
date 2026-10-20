@@ -1,0 +1,17 @@
+{
+  "eventType": "Reject",
+  "reject": {
+    "reason": "Bad content"
+  },
+  "mail": {
+    "timestamp": "2026-10-01T13:00:00.000Z",
+    "source": "no-reply@example.test",
+    "sendingAccountId": "123456789012",
+    "messageId": "ses-message-reject-0004",
+    "destination": ["rejected.content@example.test"],
+    "headersTruncated": false,
+    "tags": {
+      "ses:configuration-set": ["rebyte-transactional"]
+    }
+  }
+}

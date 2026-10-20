@@ -1,0 +1,124 @@
+server:
+  port: ${USER_SERVICE_PORT:8081}
+
+spring:
+  application:
+    name: user-service
+
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/user_db
+    username: ${MYSQL_USER:rebyte}
+    password: ${MYSQL_PASSWORD}
+
+  jpa:
+    # Flyway possiede lo schema (D-63); Hibernate si limita a verificarlo,
+    # non genera mai DDL. ddl-auto non puo generare il CHECK di D-41 comunque.
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+    # location di default classpath:db/migration, non sovrascritta
+
+  mvc:
+    problemdetails:
+      # chiave MVC — differisce da spring.webflux.problemdetails.enabled del
+      # gateway (D-30).
+      enabled: true
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:rebyte}
+    password: ${RABBITMQ_PASSWORD}
+    # simple: il relay chiama waitForConfirms(timeout) una volta per batch e
+    # marca pubblicato solo su ritorno pulito (D-18) — nessun CorrelationData
+    # per messaggio, a differenza di "correlated".
+    publisher-confirm-type: simple
+
+# D-69: /internal/** e deliberatamente non autenticato (docs/architecture.md
+# §7c) e non instradabile dal gateway (D-56) — ma springdoc non lo sa, quindi
+# senza questa esclusione l'API interna finirebbe comunque nello spec pubblico.
+springdoc:
+  packages-to-exclude: it.rebyte.user.controller.internal
+  paths-to-exclude: /internal/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    # Piu stretto dei default Eureka (30s/90s): un servizio fermato lascia il
+    # registry entro un'iterazione di sviluppo invece che un minuto e mezzo.
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # health e metrics servono a D-17; info e prometheus sono a costo
+        # quasi zero e utili; nient'altro e esposto.
+        include: health,info,metrics,prometheus
+
+# D-65, valori della decisione A2 (docs/architecture.md §11): la memoria di
+# questo servizio e limitata da un mem_limit di compose di 400m piu
+# -XX:MaxRAMPercentage=35 (heap di circa 140 MiB), MAI da un -Xmx nudo, e la
+# JVM gira con -XX:+UseSerialGC -Xss512k -XX:ReservedCodeCacheSize=64m.
+# Metaspace, stack dei thread, code cache e direct buffer crescono fuori
+# dall'heap: con 25-28 mila classi caricate il non-heap resta intorno a
+# 207-227 MiB contro un heap vivo di 46-48 MiB, quindi la quota di heap resta
+# bassa, altrimenti il container verrebbe OOM-killed prima che l'heap arrivi
+# al suo limite. Questi flag li applica la configurazione di deploy della
+# fase 7; lo sviluppo locale non li imposta.
+
+rebyte:
+  user:
+    # Used only under the local-auth profile: every sub resolves to this
+    # address, so the live SES acceptance reaches a verified sandbox inbox.
+    # Blank means the email lookup answers 404.
+    local-auth-email: ${LOCAL_AUTH_TEST_EMAIL:}
+
+  # Used only under the cognito profile, by the internal email lookup.
+  cognito:
+    user-pool-id: ${COGNITO_USER_POOL_ID:}
+    region: ${AWS_REGION:eu-south-1}
+
+  # USER-03, D-33..D-39: il bucket resta privato (block-public-access ON),
+  # servito solo tramite la distribuzione CloudFront con Origin Access
+  # Control (piano 01-06, Task 2 — provisioning manuale, nessun valore reale
+  # qui finche l'umano non lo fornisce). avatars-prefix termina con "/":
+  # la chiave e {avatars-prefix}{sub}/{uuid}, mai una URL (D-33). Il cap di
+  # 512 KB (524288 byte, non 2 MB) e nella policy firmata stessa, non solo
+  # nel codice applicativo (D-37): la firma copre l'intera policy, quindi un
+  # client che modifica il cap invalida la firma prima ancora che l'oggetto
+  # venga accettato.
+  media:
+    bucket: ${MEDIA_BUCKET}
+    region: ${MEDIA_REGION:${AWS_REGION:eu-west-1}}
+    avatars-prefix: ${MEDIA_AVATARS_PREFIX:avatars/}
+    distribution-domain: ${MEDIA_DISTRIBUTION_DOMAIN}
+    upload:
+      max-size-bytes: ${MEDIA_AVATAR_MAX_SIZE_BYTES:524288}
+      # Finestra breve deliberata (T-06-07): una policy trapelata smette di
+      # essere utilizzabile in fretta.
+      policy-expiry-seconds: 300
+
+  outbox:
+    relay:
+      # D-20: fixedDelay (mai fixedRate) misurato dal completamento del tick
+      # precedente, cosi due tick non si sovrappongono mai.
+      fixed-delay-ms: 1000
+      batch-size: 100
+      # tetto per tick: un burst drena in un solo tick invece che uno per
+      # secondo, ma resta comunque limitato.
+      max-batches-per-tick: 50
+      confirm-timeout-ms: 5000
+      # D-17: soglia oltre la quale /actuator/health degrada.
+      lag-threshold-seconds: 60
+    purge:
+      # D-19: i record pubblicati restano finche non superano questa
+      # finestra di retention — l'evidenza per un'indagine su un evento
+      # duplicato o mancante.
+      retention-days: 7
+      cron: "0 0 3 * * *"

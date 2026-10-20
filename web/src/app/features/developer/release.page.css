@@ -1,0 +1,224 @@
+:host {
+  display: block;
+}
+.release-page {
+  max-width: 960px;
+  margin-inline: auto;
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-bottom: var(--space-md);
+  color: var(--primary-strong);
+}
+.page-heading,
+.version-heading,
+.installer-footer,
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+.page-heading {
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+h1 {
+  margin: 0;
+  font-size: var(--text-heading);
+}
+h2 {
+  margin: 0;
+  font-size: var(--text-body-size);
+}
+.subtitle {
+  margin: var(--space-xs) 0 0;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.versions,
+form,
+.field {
+  display: grid;
+  gap: var(--space-md);
+}
+.field {
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+}
+.version-card,
+.state-panel {
+  padding: var(--space-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  min-width: 0;
+}
+.version-heading h2,
+.mono,
+.file-name span {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+time {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  margin-left: auto;
+}
+.notes {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.confirmation-notes {
+  max-height: 200px;
+  overflow-y: auto;
+}
+.helper {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+}
+.chip {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+.current {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+.attached {
+  color: var(--primary-strong);
+  font-weight: var(--weight-semibold);
+}
+.file-name {
+  flex: 1 1 140px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: var(--weight-regular);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.file-name span {
+  display: inline-block;
+  margin-left: var(--space-sm);
+  color: var(--text-muted);
+}
+input,
+textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  background: var(--surface);
+  font: inherit;
+}
+.installer-footer {
+  justify-content: space-between;
+  margin-top: var(--space-md);
+}
+.upload-progress {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  margin-top: var(--space-sm);
+}
+.attach-installer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  border-radius: var(--radius-pill);
+  transition: background var(--motion-fast) var(--ease);
+}
+.attach-installer:not(:disabled):hover {
+  background: var(--primary-strong);
+  border-color: var(--primary-strong);
+}
+.attach-installer svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+textarea {
+  resize: vertical;
+}
+button {
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--primary-strong);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+.primary {
+  background: var(--primary);
+  color: var(--text-on-primary);
+  border-color: var(--primary);
+}
+button:disabled,
+input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+.error {
+  color: var(--danger-strong);
+  font-size: var(--text-caption);
+}
+.error:empty,
+.notice:empty {
+  display: none;
+}
+progress {
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin-block: var(--space-sm);
+  accent-color: var(--primary);
+}
+.dialog-actions {
+  justify-content: flex-end;
+  margin-top: var(--space-lg);
+}
+@media (max-width: 640px) {
+  .page-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .version-card {
+    padding: var(--space-md);
+  }
+  .version-heading {
+    gap: var(--space-sm);
+  }
+  time {
+    width: 100%;
+    margin-left: 0;
+  }
+}

@@ -1,0 +1,104 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+@import './styles/tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--motion-fade);
+}
+
+:root[data-reduced-motion],
+:root[data-reduced-motion] *,
+:root[data-reduced-motion] *::before,
+:root[data-reduced-motion] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0s !important;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-body-size);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-body);
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--ink);
+}
+
+input,
+textarea {
+  caret-color: var(--primary);
+}
+
+a {
+  text-underline-offset: 0.2em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  box-shadow: 0 0 0 4px var(--focus-halo);
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: var(--control-text-phone);
+  }
+}
+
+.skip-link {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  z-index: var(--z-modal);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  color: var(--text-on-primary);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.startup-error {
+  max-width: var(--container-settings);
+  margin: var(--space-3xl) auto;
+  padding: var(--space-lg);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-lg);
+  background: var(--danger-soft);
+  color: var(--danger-strong);
+}
+
+/* tabindex=-1 marks programmatic focus targets (headings, main) that are not interactive, so they never show a ring. */
+[tabindex='-1']:focus {
+  outline: none;
+}

@@ -1,0 +1,8 @@
+# Profilo di deployment (docs/architecture.md §2c).
+# Il blocco e byte-identico a quello di local-auth: cambia solo issuer-uri.
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://cognito-idp.${AWS_REGION}.amazonaws.com/${COGNITO_USER_POOL_ID}

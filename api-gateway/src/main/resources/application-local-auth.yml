@@ -1,0 +1,12 @@
+# Sviluppo offline (docs/architecture.md §2c, D-29): user-service firma i token
+# RS256 e pubblica sia JWKS sia la scoperta OIDC minima (piano 01-01, D-26).
+# Questo profilo non viene mai deployato: un vero fallback di produzione
+# richiederebbe verificare credenziali — password hash in user_db — cosa che
+# D-02 vieta esplicitamente. La conseguenza accettata e nessun fallback se
+# Cognito e irraggiungibile in produzione.
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${USER_SERVICE_ISSUER:http://localhost:8081/}

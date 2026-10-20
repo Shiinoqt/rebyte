@@ -1,0 +1,107 @@
+:host {
+  display: block;
+  flex: 1;
+  margin-block: auto;
+}
+.outcome {
+  max-width: var(--container-settings);
+  margin: var(--space-2xl) auto;
+  padding: var(--space-2xl);
+  border-radius: var(--radius-xl);
+  background: var(--surface-modal);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.status-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto var(--space-lg);
+  border-radius: var(--radius-round);
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+}
+.status-icon.failed {
+  color: var(--danger-strong);
+  background: var(--danger-soft);
+}
+svg {
+  width: 32px;
+  height: 32px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--primary-border);
+  border-top-color: var(--primary-strong);
+  border-radius: var(--radius-round);
+  animation: confirm-payment 1s linear infinite;
+}
+@keyframes confirm-payment {
+  to {
+    transform: rotate(360deg);
+  }
+}
+h1 {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--text-display);
+  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-display);
+  overflow-wrap: anywhere;
+}
+p {
+  margin: 0;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xl);
+}
+a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--hit-min);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+.primary {
+  background: var(--primary);
+  color: var(--text-on-primary);
+}
+.primary:hover {
+  background: var(--primary-strong);
+}
+.secondary {
+  color: var(--primary-strong);
+}
+.secondary:hover {
+  background: var(--primary-soft);
+}
+@media (max-width: 640px) {
+  .outcome {
+    margin-top: var(--space-lg);
+    padding: var(--space-lg);
+  }
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "rebyte-web",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install chromium",
+    "test:ci": "ng test --no-watch --no-progress",
+    "test:e2e-helpers": "vitest run --config e2e/vitest.config.ts",
+    "e2e:fixtures": "playwright test --config e2e/fixtures.config.ts"
+  },
+  "private": true,
+  "packageManager": "npm@12.2.0",
+  "dependencies": {
+    "@angular/cdk": "22.2.1",
+    "@angular/common": "^22.2.0",
+    "@angular/compiler": "^22.2.0",
+    "@angular/core": "^22.2.0",
+    "@angular/forms": "^22.2.0",
+    "@angular/platform-browser": "^22.2.0",
+    "@angular/router": "^22.2.0",
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "@fontsource-variable/outfit": "5.3.0",
+    "@ngrx/signals": "22.0.1",
+    "@stomp/stompjs": "7.3.0",
+    "aws-amplify": "6.22.1",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.2.2",
+    "@angular/cli": "^22.2.2",
+    "@angular/compiler-cli": "^22.2.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.5",
+    "jsdom": "^30.0.0",
+    "prettier": "3.9.9",
+    "typescript": "~6.0.2",
+    "vitest": "^5.0.0"
+  }
+}

@@ -1,0 +1,18 @@
+# Activated only when the "test" Spring profile is active (e.g.
+# RedisIsolationIT's @ActiveProfiles). spring.data.redis.host/port are
+# deliberately unreachable canaries, not a real target: MongoTestBase's
+# @ServiceConnection(name = "redis") Testcontainers Redis must replace the
+# RedisConnectionDetails bean outright and win over these property values
+# regardless of what they are set to. If that replacement ever did NOT
+# take effect, any Redis operation in the test would fail fast against a
+# refused connection on 127.0.0.1:1 instead of silently reaching the
+# developer's live dev Redis — the same "port 1 fails loudly" idiom
+# MongoTestBase already uses for spring.rabbitmq.port.
+spring:
+  config:
+    activate:
+      on-profile: test
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 1

@@ -1,0 +1,111 @@
+server:
+  port: ${ORDER_SERVICE_PORT:8084}
+
+spring:
+  task:
+    scheduling:
+      pool:
+        size: 4
+
+  application:
+    name: order-service
+
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/order_db
+    username: ${MYSQL_USER:rebyte}
+    password: ${MYSQL_PASSWORD}
+
+  jpa:
+    # Flyway owns the schema; Hibernate only validates, never generates DDL.
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+    # default location classpath:db/migration, not overridden
+
+  mvc:
+    problemdetails:
+      enabled: true
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:rebyte}
+    password: ${RABBITMQ_PASSWORD}
+    publisher-confirm-type: simple
+    listener:
+      simple:
+        default-requeue-rejected: false
+
+  cloud:
+    openfeign:
+      # D-37: wraps every Feign method on this classpath with a circuit
+      # breaker, so it covers all three clients (catalog, payment, user).
+      # Catalog and payment are checkout-critical; the user lookup is the
+      # tolerant one: while its breaker is open, review reads degrade to null
+      # author usernames instead of failing.
+      circuitbreaker:
+        enabled: true
+      client:
+        config:
+          catalog-service:
+            connect-timeout: ${CATALOG_SERVICE_CONNECT_TIMEOUT_MS:1000}
+            read-timeout: ${CATALOG_SERVICE_READ_TIMEOUT_MS:2000}
+            url: ${CATALOG_SERVICE_URL:}
+          payment-service:
+            connect-timeout: ${PAYMENT_SERVICE_CONNECT_TIMEOUT_MS:1000}
+            # A payment create that must first fetch a PayPal OAuth token takes
+            # over 2s; timing it out cancels an order whose PayPal order exists.
+            read-timeout: ${PAYMENT_SERVICE_READ_TIMEOUT_MS:5000}
+            url: ${PAYMENT_SERVICE_URL:}
+          user-service:
+            connect-timeout: ${USER_SERVICE_CONNECT_TIMEOUT_MS:1000}
+            read-timeout: ${USER_SERVICE_READ_TIMEOUT_MS:2000}
+            url: ${USER_SERVICE_URL:}
+    circuitbreaker:
+      resilience4j:
+        # Feign connect/read timeouts above are meant to be the only
+        # per-call bound. Resilience4j's default 1s TimeLimiter would
+        # abandon a payment create that payment-service still completes,
+        # cancelling an order whose PayPal order already exists.
+        disable-time-limiter: true
+
+# /internal/** is deliberately unauthenticated (docs/architecture.md §7c) and
+# not routable from the gateway — but springdoc does not know that, so
+# without this exclusion the internal API would still end up in the public spec.
+springdoc:
+  packages-to-exclude: it.rebyte.order.controller.internal
+  paths-to-exclude: /internal/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+rebyte:
+  fulfilment:
+    ship-by-deadline: ${FULFILMENT_SHIP_BY_DEADLINE:P7D}
+    report-window: ${FULFILMENT_REPORT_WINDOW:P14D}
+    auto-deliver-after: ${FULFILMENT_AUTO_DELIVER_AFTER:P14D}
+    sweep-delay-ms: ${FULFILMENT_SWEEP_DELAY_MS:60000}
+    sweep-initial-delay-ms: 60000
+    sweep-batch-size: 50
+  offers:
+    hold-duration: ${OFFER_HOLD_DURATION:PT24H}
+    expiry-batch-size: ${OFFER_EXPIRY_BATCH_SIZE:100}
+    accept-claim-timeout: ${OFFER_ACCEPT_CLAIM_TIMEOUT:PT2M}
+  checkout:
+    # D-24: AWAITING_PAYMENT times out after this many minutes; stored
+    # eagerly as Order.expiryAt at creation so a later sweep plan can query
+    # without recomputing it.
+    payment-timeout-minutes: ${CHECKOUT_PAYMENT_TIMEOUT_MINUTES:30}

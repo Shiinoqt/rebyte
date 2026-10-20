@@ -1,0 +1,4 @@
+Apple, Android and Linux icons: Simple Icons (CC0 1.0).
+Source: https://github.com/simple-icons/simple-icons/tree/develop/icons
+License: https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md
+Windows panes and web globe are project-authored SVG geometry.

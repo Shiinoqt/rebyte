@@ -1,0 +1,673 @@
+{
+  "services": {
+    "mysql-app": {
+      "image": "mysql:8.4",
+      "platform": "linux/amd64",
+      "restart": "unless-stopped",
+      "mem_limit": "768m",
+      "networks": [
+        "backend"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "environment": {
+        "MYSQL_ROOT_PASSWORD": "${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}",
+        "MYSQL_USER": "rebyte",
+        "MYSQL_PASSWORD": "${MYSQL_PASSWORD:?Set MYSQL_PASSWORD}"
+      },
+      "command": [
+        "--character-set-server=utf8mb4",
+        "--collation-server=utf8mb4_unicode_ci",
+        "--innodb-buffer-pool-size=256M",
+        "--max-connections=100"
+      ],
+      "volumes": [
+        "mysql-data:/var/lib/mysql"
+      ],
+      "configs": [
+        {
+          "source": "mysql-init",
+          "target": "/docker-entrypoint-initdb.d/01-demo.sql"
+        }
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1"
+        ],
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "40s"
+      }
+    },
+    "redis": {
+      "image": "redis:7-alpine",
+      "user": "redis",
+      "platform": "linux/amd64",
+      "restart": "unless-stopped",
+      "mem_limit": "256m",
+      "networks": [
+        "backend"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "environment": {
+        "REDIS_PASSWORD": "${REDIS_PASSWORD:?Set REDIS_PASSWORD}"
+      },
+      "command": [
+        "sh",
+        "-ec",
+        "exec redis-server --appendonly yes --maxmemory 96mb --maxmemory-policy noeviction --requirepass \"$$REDIS_PASSWORD\""
+      ],
+      "volumes": [
+        "redis-data:/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -qx PONG"
+        ],
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "10s"
+      }
+    },
+    "rabbitmq": {
+      "image": "${GHCR_NAMESPACE:?Set GHCR_NAMESPACE}/rabbitmq:${DEMO_IMAGE_TAG:?Set DEMO_IMAGE_TAG}",
+      "platform": "linux/amd64",
+      "restart": "unless-stopped",
+      "mem_limit": "512m",
+      "networks": [
+        "backend"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "hostname": "rabbitmq",
+      "environment": {
+        "RABBITMQ_DEFAULT_USER": "${RABBITMQ_USER:?Set RABBITMQ_USER}",
+        "RABBITMQ_DEFAULT_PASS": "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}"
+      },
+      "volumes": [
+        "rabbitmq-data:/var/lib/rabbitmq"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "rabbitmq-diagnostics",
+          "-q",
+          "check_running"
+        ],
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "60s"
+      }
+    },
+    "meilisearch": {
+      "image": "getmeili/meilisearch:v1.53.2",
+      "platform": "linux/amd64",
+      "restart": "unless-stopped",
+      "mem_limit": "512m",
+      "networks": [
+        "backend"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "environment": {
+        "MEILI_MASTER_KEY": "${MEILI_MASTER_KEY:?Set MEILI_MASTER_KEY}",
+        "MEILI_ENV": "production",
+        "MEILI_MAX_INDEXING_MEMORY": "256Mb",
+        "MEILI_MAX_INDEXING_THREADS": "1"
+      },
+      "volumes": [
+        "meili-data:/meili_data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://localhost:7700/health"
+        ],
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "20s"
+      }
+    },
+    "discovery-server": {
+      "image": "${GHCR_NAMESPACE:?Set GHCR_NAMESPACE}/discovery-server:${DEMO_IMAGE_TAG:?Set DEMO_IMAGE_TAG}",
+      "platform": "linux/amd64",
+      "restart": "unless-stopped",
+      "mem_limit": "512m",
+      "networks": [
+        "backend"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "hostname": "discovery-server",
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-XX:MaxRAMPercentage=35 -XX:+UseSerialGC -Xss512k -XX:ReservedCodeCacheSize=64m",
+        "SPRING_PROFILES_ACTIVE": "cognito,demo",
+        "EUREKA_INSTANCE_HOSTNAME": "discovery-server",
+        "EUREKA_INSTANCE_PREFER_IP_ADDRESS": "false",
+        "DISCOVERY_PORT": "8761"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://localhost:8761/actuator/health"
+        ],
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "90s"
+      }
+    },
+    "user-service": {
+      "image": "${GHCR_NAMESPACE:?Set GHCR_NAMESPACE}/user-service:${DEMO_IMAGE_TAG:?Set DEMO_IMAGE_TAG}",
+      "platform": "linux/amd64",
+      "restart": "unless-stopped",
+      "mem_limit": "512m",
+      "networks": [
+        "backend"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "depends_on": {
+        "discovery-server": {
+          "condition": "service_healthy"
+        },
+        "rabbitmq": {
+          "condition": "service_healthy"
+        },
+        "mysql-app": {
+          "condition": "service_healthy"
+        }
+      },
+      "hostname": "user-service",
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-XX:MaxRAMPercentage=35 -XX:+UseSerialGC -Xss512k -XX:ReservedCodeCacheSize=64m",
+        "SPRING_PROFILES_ACTIVE": "cognito,demo",
+        "EUREKA_INSTANCE_HOSTNAME": "user-service",
+        "EUREKA_INSTANCE_PREFER_IP_ADDRESS": "false",
+        "AWS_REGION": "${AWS_REGION:?Set AWS_REGION}",
+        "COGNITO_USER_POOL_ID": "${COGNITO_USER_POOL_ID:?Set COGNITO_USER_POOL_ID}",
+        "EUREKA_URL": "http://discovery-server:8761/eureka/",
+        "RABBITMQ_HOST": "rabbitmq",
+        "RABBITMQ_USER": "${RABBITMQ_USER:?Set RABBITMQ_USER}",
+        "RABBITMQ_PASSWORD": "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}",
+        "SPRING_DATASOURCE_URL": "jdbc:mysql://mysql-app:3306/user_demo",
+        "MYSQL_USER": "rebyte",
+        "MYSQL_PASSWORD": "${MYSQL_PASSWORD:?Set MYSQL_PASSWORD}",
+        "MEDIA_BUCKET": "${MEDIA_BUCKET:?Set MEDIA_BUCKET}",
+        "MEDIA_REGION": "${AWS_REGION:?Set AWS_REGION}",
+        "AWS_ACCESS_KEY_ID": "${USER_AWS_ACCESS_KEY_ID:?Set USER_AWS_ACCESS_KEY_ID}",
+        "AWS_SECRET_ACCESS_KEY": "${USER_AWS_SECRET_ACCESS_KEY:?Set USER_AWS_SECRET_ACCESS_KEY}",
+        "MEDIA_DISTRIBUTION_DOMAIN": "${MEDIA_DISTRIBUTION_DOMAIN:?Set MEDIA_DISTRIBUTION_DOMAIN}",
+        "MEDIA_AVATAR_MAX_SIZE_BYTES": "262144"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://localhost:8081/actuator/health"
+        ],
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "90s"
+      }
+    },
+    "catalog-service": {
+      "image": "${GHCR_NAMESPACE:?Set GHCR_NAMESPACE}/catalog-service:${DEMO_IMAGE_TAG:?Set DEMO_IMAGE_TAG}",
+      "platform": "linux/amd64",
+      "restart": "unless-stopped",
+      "mem_limit": "512m",
+      "networks": [
+        "backend"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "depends_on": {
+        "discovery-server": {
+          "condition": "service_healthy"
+        },
+        "rabbitmq": {
+          "condition": "service_healthy"
+        },
+        "redis": {
+          "condition": "service_healthy"
+        },
+        "meilisearch": {
+          "condition": "service_healthy"
+        }
+      },
+      "hostname": "catalog-service",
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-XX:MaxRAMPercentage=35 -XX:+UseSerialGC -Xss512k -XX:ReservedCodeCacheSize=64m",
+        "SPRING_PROFILES_ACTIVE": "cognito,demo",
+        "EUREKA_INSTANCE_HOSTNAME": "catalog-service",
+        "EUREKA_INSTANCE_PREFER_IP_ADDRESS": "false",
+        "AWS_REGION": "${AWS_REGION:?Set AWS_REGION}",
+        "COGNITO_USER_POOL_ID": "${COGNITO_USER_POOL_ID:?Set COGNITO_USER_POOL_ID}",
+        "EUREKA_URL": "http://discovery-server:8761/eureka/",
+        "RABBITMQ_HOST": "rabbitmq",
+        "RABBITMQ_USER": "${RABBITMQ_USER:?Set RABBITMQ_USER}",
+        "RABBITMQ_PASSWORD": "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}",
+        "MONGO_URI": "${CATALOG_MONGO_URI:?Set CATALOG_MONGO_URI}",
+        "REDIS_HOST": "redis",
+        "SPRING_DATA_REDIS_PASSWORD": "${REDIS_PASSWORD:?Set REDIS_PASSWORD}",
+        "MEDIA_BUCKET": "${MEDIA_BUCKET:?Set MEDIA_BUCKET}",
+        "MEDIA_REGION": "${AWS_REGION:?Set AWS_REGION}",
+        "CATALOG_AWS_ACCESS_KEY_ID": "${CATALOG_AWS_ACCESS_KEY_ID:?Set CATALOG_AWS_ACCESS_KEY_ID}",
+        "CATALOG_AWS_SECRET_ACCESS_KEY": "${CATALOG_AWS_SECRET_ACCESS_KEY:?Set CATALOG_AWS_SECRET_ACCESS_KEY}",
+        "MEDIA_DISTRIBUTION_DOMAIN": "${MEDIA_DISTRIBUTION_DOMAIN:?Set MEDIA_DISTRIBUTION_DOMAIN}",
+        "MEDIA_PHOTO_MAX_SIZE_BYTES": "1048576",
+        "MEDIA_ARTIFACT_MAX_SIZE_BYTES": "10485760",
+        "MEILI_URL": "http://meilisearch:7700",
+        "MEILI_MASTER_KEY": "${MEILI_MASTER_KEY:?Set MEILI_MASTER_KEY}",
+        "SPRING_DATA_REDIS_TIMEOUT": "2s",
+        "SPRING_DATA_REDIS_CONNECT_TIMEOUT": "2s"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://localhost:8082/actuator/health"
+        ],
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "90s"
+      }
+    },
+    "order-service": {
+      "image": "${GHCR_NAMESPACE:?Set GHCR_NAMESPACE}/order-service:${DEMO_IMAGE_TAG:?Set DEMO_IMAGE_TAG}",
+      "platform": "linux/amd64",
+      "restart": "unless-stopped",
+      "mem_limit": "512m",
+      "networks": [
+        "backend"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "depends_on": {
+        "discovery-server": {
+          "condition": "service_healthy"
+        },
+        "rabbitmq": {
+          "condition": "service_healthy"
+        },
+        "mysql-app": {
+          "condition": "service_healthy"
+        }
+      },
+      "hostname": "order-service",
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-XX:MaxRAMPercentage=35 -XX:+UseSerialGC -Xss512k -XX:ReservedCodeCacheSize=64m",
+        "SPRING_PROFILES_ACTIVE": "cognito,demo",
+        "EUREKA_INSTANCE_HOSTNAME": "order-service",
+        "EUREKA_INSTANCE_PREFER_IP_ADDRESS": "false",
+        "AWS_REGION": "${AWS_REGION:?Set AWS_REGION}",
+        "COGNITO_USER_POOL_ID": "${COGNITO_USER_POOL_ID:?Set COGNITO_USER_POOL_ID}",
+        "EUREKA_URL": "http://discovery-server:8761/eureka/",
+        "RABBITMQ_HOST": "rabbitmq",
+        "RABBITMQ_USER": "${RABBITMQ_USER:?Set RABBITMQ_USER}",
+        "RABBITMQ_PASSWORD": "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}",
+        "SPRING_DATASOURCE_URL": "jdbc:mysql://mysql-app:3306/order_demo",
+        "MYSQL_USER": "rebyte",
+        "MYSQL_PASSWORD": "${MYSQL_PASSWORD:?Set MYSQL_PASSWORD}"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://localhost:8084/actuator/health"
+        ],
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "90s"
+      }
+    },
+    "payment-service": {
+      "image": "${GHCR_NAMESPACE:?Set GHCR_NAMESPACE}/payment-service:${DEMO_IMAGE_TAG:?Set DEMO_IMAGE_TAG}",
+      "platform": "linux/amd64",
+      "restart": "unless-stopped",
+      "mem_limit": "512m",
+      "networks": [
+        "backend"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "depends_on": {
+        "discovery-server": {
+          "condition": "service_healthy"
+        },
+        "rabbitmq": {
+          "condition": "service_healthy"
+        },
+        "mysql-app": {
+          "condition": "service_healthy"
+        }
+      },
+      "hostname": "payment-service",
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-XX:MaxRAMPercentage=35 -XX:+UseSerialGC -Xss512k -XX:ReservedCodeCacheSize=64m",
+        "SPRING_PROFILES_ACTIVE": "cognito,demo",
+        "EUREKA_INSTANCE_HOSTNAME": "payment-service",
+        "EUREKA_INSTANCE_PREFER_IP_ADDRESS": "false",
+        "AWS_REGION": "${AWS_REGION:?Set AWS_REGION}",
+        "COGNITO_USER_POOL_ID": "${COGNITO_USER_POOL_ID:?Set COGNITO_USER_POOL_ID}",
+        "EUREKA_URL": "http://discovery-server:8761/eureka/",
+        "RABBITMQ_HOST": "rabbitmq",
+        "RABBITMQ_USER": "${RABBITMQ_USER:?Set RABBITMQ_USER}",
+        "RABBITMQ_PASSWORD": "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}",
+        "SPRING_DATASOURCE_URL": "jdbc:mysql://mysql-app:3306/payment_demo",
+        "MYSQL_USER": "rebyte",
+        "MYSQL_PASSWORD": "${MYSQL_PASSWORD:?Set MYSQL_PASSWORD}",
+        "PAYPAL_BASE_URL": "${PAYPAL_BASE_URL:?Set PAYPAL_BASE_URL}",
+        "PAYPAL_CLIENT_ID": "${PAYPAL_CLIENT_ID:?Set PAYPAL_CLIENT_ID}",
+        "PAYPAL_CLIENT_SECRET": "${PAYPAL_CLIENT_SECRET:?Set PAYPAL_CLIENT_SECRET}",
+        "PAYPAL_WEBHOOK_ID": "${PAYPAL_WEBHOOK_ID:?Set PAYPAL_WEBHOOK_ID}",
+        "CHECKOUT_RETURN_BASE_URL": "${CHECKOUT_RETURN_BASE_URL:?Set CHECKOUT_RETURN_BASE_URL}"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://localhost:8085/actuator/health"
+        ],
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "90s"
+      }
+    },
+    "messaging-service": {
+      "image": "${GHCR_NAMESPACE:?Set GHCR_NAMESPACE}/messaging-service:${DEMO_IMAGE_TAG:?Set DEMO_IMAGE_TAG}",
+      "platform": "linux/amd64",
+      "restart": "unless-stopped",
+      "mem_limit": "512m",
+      "networks": [
+        "backend"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "depends_on": {
+        "discovery-server": {
+          "condition": "service_healthy"
+        },
+        "rabbitmq": {
+          "condition": "service_healthy"
+        },
+        "redis": {
+          "condition": "service_healthy"
+        }
+      },
+      "hostname": "messaging-service",
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-XX:MaxRAMPercentage=35 -XX:+UseSerialGC -Xss512k -XX:ReservedCodeCacheSize=64m",
+        "SPRING_PROFILES_ACTIVE": "cognito,demo",
+        "EUREKA_INSTANCE_HOSTNAME": "messaging-service",
+        "EUREKA_INSTANCE_PREFER_IP_ADDRESS": "false",
+        "AWS_REGION": "${AWS_REGION:?Set AWS_REGION}",
+        "COGNITO_USER_POOL_ID": "${COGNITO_USER_POOL_ID:?Set COGNITO_USER_POOL_ID}",
+        "EUREKA_URL": "http://discovery-server:8761/eureka/",
+        "RABBITMQ_HOST": "rabbitmq",
+        "RABBITMQ_USER": "${RABBITMQ_USER:?Set RABBITMQ_USER}",
+        "RABBITMQ_PASSWORD": "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}",
+        "MONGO_URI": "${MESSAGING_MONGO_URI:?Set MESSAGING_MONGO_URI}",
+        "REDIS_HOST": "redis",
+        "SPRING_DATA_REDIS_PASSWORD": "${REDIS_PASSWORD:?Set REDIS_PASSWORD}",
+        "MEDIA_BUCKET": "${MEDIA_BUCKET:?Set MEDIA_BUCKET}",
+        "MEDIA_REGION": "${AWS_REGION:?Set AWS_REGION}",
+        "MESSAGING_AWS_ACCESS_KEY_ID": "${MESSAGING_AWS_ACCESS_KEY_ID:?Set MESSAGING_AWS_ACCESS_KEY_ID}",
+        "MESSAGING_AWS_SECRET_ACCESS_KEY": "${MESSAGING_AWS_SECRET_ACCESS_KEY:?Set MESSAGING_AWS_SECRET_ACCESS_KEY}",
+        "SES_FROM_ADDRESS": "${SES_FROM_ADDRESS:?Set SES_FROM_ADDRESS}",
+        "SES_CONFIGURATION_SET": "${SES_CONFIGURATION_SET:?Set SES_CONFIGURATION_SET}",
+        "SES_EVENTS_QUEUE_URL": "${SES_EVENTS_QUEUE_URL:?Set SES_EVENTS_QUEUE_URL}",
+        "MESSAGING_UNSUBSCRIBE_SECRET": "${MESSAGING_UNSUBSCRIBE_SECRET:?Set MESSAGING_UNSUBSCRIBE_SECRET}",
+        "MESSAGING_WEB_BASE_URL": "${MESSAGING_WEB_BASE_URL:?Set MESSAGING_WEB_BASE_URL}",
+        "MESSAGING_PUBLIC_API_URL": "${MESSAGING_PUBLIC_API_URL:?Set MESSAGING_PUBLIC_API_URL}",
+        "SES_REGION": "${AWS_REGION:?Set AWS_REGION}",
+        "SES_EVENTS_ENABLED": "true",
+        "MESSAGING_WS_ALLOWED_ORIGINS": "${SPA_ALLOWED_ORIGINS:?Set SPA_ALLOWED_ORIGINS}",
+        "MEDIA_CHAT_IMAGE_MAX_SIZE_BYTES": "524288",
+        "SPRING_DATA_REDIS_TIMEOUT": "2s",
+        "SPRING_DATA_REDIS_CONNECT_TIMEOUT": "2s"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://localhost:8083/actuator/health"
+        ],
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "90s"
+      }
+    },
+    "api-gateway": {
+      "image": "${GHCR_NAMESPACE:?Set GHCR_NAMESPACE}/api-gateway:${DEMO_IMAGE_TAG:?Set DEMO_IMAGE_TAG}",
+      "platform": "linux/amd64",
+      "restart": "unless-stopped",
+      "mem_limit": "512m",
+      "networks": [
+        "backend",
+        "proxy"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "depends_on": {
+        "discovery-server": {
+          "condition": "service_healthy"
+        },
+        "redis": {
+          "condition": "service_healthy"
+        }
+      },
+      "expose": [
+        "8080"
+      ],
+      "hostname": "api-gateway",
+      "environment": {
+        "JAVA_TOOL_OPTIONS": "-XX:MaxRAMPercentage=35 -XX:+UseSerialGC -Xss512k -XX:ReservedCodeCacheSize=64m",
+        "SPRING_PROFILES_ACTIVE": "cognito,demo",
+        "EUREKA_INSTANCE_HOSTNAME": "api-gateway",
+        "EUREKA_INSTANCE_PREFER_IP_ADDRESS": "false",
+        "AWS_REGION": "${AWS_REGION:?Set AWS_REGION}",
+        "COGNITO_USER_POOL_ID": "${COGNITO_USER_POOL_ID:?Set COGNITO_USER_POOL_ID}",
+        "EUREKA_URL": "http://discovery-server:8761/eureka/",
+        "REDIS_HOST": "redis",
+        "SPRING_DATA_REDIS_PASSWORD": "${REDIS_PASSWORD:?Set REDIS_PASSWORD}",
+        "GATEWAY_PORT": "8080",
+        "GATEWAY_CORS_ALLOWED_ORIGINS": "${SPA_ALLOWED_ORIGINS:?Set SPA_ALLOWED_ORIGINS}",
+        "GATEWAY_TRUSTED_PROXIES": "${GATEWAY_TRUSTED_PROXIES:?Set GATEWAY_TRUSTED_PROXIES}",
+        "SERVER_FORWARD_HEADERS_STRATEGY": "framework",
+        "SPRING_DATA_REDIS_TIMEOUT": "2s",
+        "SPRING_DATA_REDIS_CONNECT_TIMEOUT": "2s"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://localhost:8080/actuator/health"
+        ],
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 12,
+        "start_period": "90s"
+      },
+      "labels": {
+        "traefik.enable": "true",
+        "traefik.docker.network": "${COOLIFY_PROXY_NETWORK:?Set COOLIFY_PROXY_NETWORK}",
+        "traefik.http.routers.rebyte-demo-api.rule": "Host(`api.rebyte.tech`)",
+        "traefik.http.routers.rebyte-demo-api.entrypoints": "https",
+        "traefik.http.routers.rebyte-demo-api.tls": "true",
+        "traefik.http.routers.rebyte-demo-api.tls.certresolver": "letsencrypt",
+        "traefik.http.routers.rebyte-demo-api.service": "rebyte-demo-api",
+        "traefik.http.services.rebyte-demo-api.loadbalancer.server.port": "8080"
+      }
+    },
+    "demo-runner": {
+      "image": "${GHCR_NAMESPACE:?Set GHCR_NAMESPACE}/demo-runner:${DEMO_IMAGE_TAG:?Set DEMO_IMAGE_TAG}",
+      "platform": "linux/amd64",
+      "restart": "unless-stopped",
+      "init": true,
+      "user": "10001:10001",
+      "mem_limit": "768m",
+      "cpus": "0.50",
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "networks": [
+        "backend"
+      ],
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "environment": {
+        "TZ": "Europe/Rome"
+      },
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "reset-config",
+          "target": "/run/secrets/demo-reset",
+          "read_only": true,
+          "volume": {
+            "nocopy": true
+          }
+        }
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,size=64m,mode=1777",
+        "/run/demo-reset:rw,noexec,nosuid,size=1m,uid=10001,gid=10001,mode=0700"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "/app/scripts/demo/runner.mjs",
+          "--check"
+        ],
+        "interval": "30s",
+        "timeout": "15s",
+        "start_period": "30s",
+        "retries": 3
+      }
+    }
+  },
+  "networks": {
+    "backend": {
+      "external": true,
+      "name": "${DEMO_RESOURCE_ID:?Set DEMO_RESOURCE_ID}-backend"
+    },
+    "proxy": {
+      "external": true,
+      "name": "${COOLIFY_PROXY_NETWORK:?Set COOLIFY_PROXY_NETWORK}"
+    }
+  },
+  "volumes": {
+    "reset-config": {
+      "external": true,
+      "name": "${DEMO_RESOURCE_ID}-reset-config"
+    },
+    "mysql-data": {
+      "name": "${DEMO_RESOURCE_ID:?Set DEMO_RESOURCE_ID}-mysql-data"
+    },
+    "redis-data": {
+      "name": "${DEMO_RESOURCE_ID:?Set DEMO_RESOURCE_ID}-redis-data"
+    },
+    "rabbitmq-data": {
+      "name": "${DEMO_RESOURCE_ID:?Set DEMO_RESOURCE_ID}-rabbitmq-data"
+    },
+    "meili-data": {
+      "name": "${DEMO_RESOURCE_ID:?Set DEMO_RESOURCE_ID}-meili-data"
+    }
+  },
+  "configs": {
+    "mysql-init": {
+      "content": "CREATE DATABASE IF NOT EXISTS user_demo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\nGRANT ALL PRIVILEGES ON user_demo.* TO 'rebyte'@'%';\nCREATE DATABASE IF NOT EXISTS order_demo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\nGRANT ALL PRIVILEGES ON order_demo.* TO 'rebyte'@'%';\nCREATE DATABASE IF NOT EXISTS payment_demo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\nGRANT ALL PRIVILEGES ON payment_demo.* TO 'rebyte'@'%';\nFLUSH PRIVILEGES;\n"
+    }
+  }
+}

@@ -1,0 +1,92 @@
+server:
+  port: ${PAYMENT_SERVICE_PORT:8085}
+
+spring:
+  application:
+    name: payment-service
+
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/payment_db
+    username: ${MYSQL_USER:rebyte}
+    password: ${MYSQL_PASSWORD}
+
+  jpa:
+    # Flyway owns the schema; Hibernate only validates, never generates DDL.
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+    # default location classpath:db/migration, not overridden
+
+  mvc:
+    problemdetails:
+      enabled: true
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:rebyte}
+    password: ${RABBITMQ_PASSWORD}
+    publisher-confirm-type: simple
+
+  cloud:
+    openfeign:
+      # D-37 spirit: the only Feign client this service declares (the
+      # order-service capture-authorization grant) is checkout-critical —
+      # no unrelated "tolerant" client to accidentally wrap.
+      circuitbreaker:
+        enabled: true
+      client:
+        config:
+          order-service:
+            connect-timeout: ${ORDER_SERVICE_CONNECT_TIMEOUT_MS:1000}
+            read-timeout: ${ORDER_SERVICE_READ_TIMEOUT_MS:2000}
+            url: ${ORDER_SERVICE_URL:}
+
+# /internal/** is deliberately unauthenticated (docs/architecture.md §7c) and
+# not routable from the gateway — but springdoc does not know that, so
+# without this exclusion the internal API would still end up in the public spec.
+springdoc:
+  packages-to-exclude: it.rebyte.payment.controller.internal
+  paths-to-exclude: /internal/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+rebyte:
+  paypal:
+    # D-23: PayPal REST base URL, sandbox by default. Never a named tunnel
+    # or the sandbox app's client id/secret hardcoded here — env-only
+    # secrets (T-03-12).
+    base-url: ${PAYPAL_BASE_URL:https://api-m.sandbox.paypal.com}
+    client-id: ${PAYPAL_CLIENT_ID:}
+    client-secret: ${PAYPAL_CLIENT_SECRET:}
+    connect-timeout-ms: ${PAYPAL_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${PAYPAL_READ_TIMEOUT_MS:5000}
+    webhook-id: ${PAYPAL_WEBHOOK_ID:}
+  checkout:
+    # D-08: return_url/cancel_url come from this property; defaults to a
+    # placeholder host since the Angular SPA routes do not exist yet
+    # (Phase 6). Phase 3 drives capture/cancel by hand via Postman/runbook.
+    return-base-url: ${CHECKOUT_RETURN_BASE_URL:https://example.invalid}
+    # D-24: AWAITING_PAYMENT times out after this long; the reconciliation
+    # sweep (03-10-PLAN.md Task 1) treats any due, unresolved Payment past
+    # this age as due for a GET. ISO-8601 duration.
+    payment-timeout: ${CHECKOUT_PAYMENT_TIMEOUT:PT30M}
+    reconciliation:
+      # ~once/minute bounded batches (Claude's Discretion, 03-10-PLAN.md).
+      fixed-delay-ms: ${RECONCILIATION_FIXED_DELAY_MS:60000}
+      initial-delay-ms: ${RECONCILIATION_INITIAL_DELAY_MS:15000}
+      batch-size: ${RECONCILIATION_BATCH_SIZE:50}

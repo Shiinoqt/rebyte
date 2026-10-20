@@ -1,0 +1,152 @@
+server:
+  port: ${MESSAGING_SERVICE_PORT:8083}
+
+spring:
+  application:
+    name: messaging-service
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          user-service:
+            connect-timeout: ${USER_SERVICE_CONNECT_TIMEOUT_MS:1000}
+            read-timeout: ${USER_SERVICE_READ_TIMEOUT_MS:2000}
+            url: ${USER_SERVICE_URL:}
+          order-service:
+            connect-timeout: ${ORDER_SERVICE_CONNECT_TIMEOUT_MS:1000}
+            read-timeout: ${ORDER_SERVICE_READ_TIMEOUT_MS:2000}
+            url: ${ORDER_SERVICE_URL:}
+          catalog-service:
+            connect-timeout: ${CATALOG_SERVICE_CONNECT_TIMEOUT_MS:1000}
+            read-timeout: ${CATALOG_SERVICE_READ_TIMEOUT_MS:2000}
+            url: ${CATALOG_SERVICE_URL:}
+
+  # replicaSet=rs0 is mandatory: without it the driver treats the node as
+  # standalone and multi-document transactions fail
+  # (infra/docker-compose.yml, section 2b).
+  mongodb:
+    uri: ${MONGO_URI:mongodb://localhost:27017/messaging_db?replicaSet=rs0}
+
+  data:
+    mongodb:
+      # Spring Data creates no indexes by default. Deduplication of redelivered
+      # events and TTL expiry depend on the unique and TTL indexes declared on
+      # the documents, so they must exist before the first write.
+      auto-index-creation: true
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  mvc:
+    problemdetails:
+      enabled: true
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:rebyte}
+    password: ${RABBITMQ_PASSWORD}
+    publisher-confirm-type: simple
+    listener:
+      simple:
+        # The email queue's single-active-consumer argument serializes the
+        # email lane across instances; prefetch 1 keeps one job in flight.
+        prefetch: 1
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          initial-interval: 1s
+          multiplier: 2
+          max-interval: 10s
+          max-retries: 3
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+logging:
+  level:
+    # STOMP CONNECT frames carry bearer tokens; DEBUG would print them.
+    org.springframework.web.socket: INFO
+    org.springframework.messaging: INFO
+
+rebyte:
+  media:
+    bucket: ${MEDIA_BUCKET}
+    region: ${MEDIA_REGION:eu-south-1}
+    chat-prefix: ${MEDIA_CHAT_PREFIX:chat/}
+    chat-upload:
+      max-size-bytes: ${MEDIA_CHAT_IMAGE_MAX_SIZE_BYTES:1048576}
+      policy-expiry-seconds: 300
+    chat-url-ttl-seconds: ${MEDIA_CHAT_URL_TTL_SECONDS:300}
+    chat-orphan-grace: PT24H
+    chat-sweep-cron: "0 30 3 * * *"
+
+  messaging:
+    aws:
+      # No default and no fallback to the AWS_* chain: a leaked messaging key
+      # must only reach chat/* and SES, never listing photos or artifacts.
+      access-key-id: ${MESSAGING_AWS_ACCESS_KEY_ID:}
+      secret-access-key: ${MESSAGING_AWS_SECRET_ACCESS_KEY:}
+
+  ses:
+    region: ${SES_REGION:eu-south-1}
+    from-address: ${SES_FROM_ADDRESS:}
+    configuration-set: ${SES_CONFIGURATION_SET:rebyte-transactional}
+    min-send-interval-ms: ${MESSAGING_SES_MIN_SEND_INTERVAL_MS:1100}
+    events:
+      enabled: ${SES_EVENTS_ENABLED:false}
+      queue-url: ${SES_EVENTS_QUEUE_URL:}
+
+  email:
+    preparation-timeout: ${MESSAGING_EMAIL_PREPARATION_TIMEOUT:PT5M}
+    preparation-reaper:
+      fixed-delay-ms: 60000
+    new-message-window: ${MESSAGING_EMAIL_NEW_MESSAGE_WINDOW:PT15M}
+    web-base-url: ${MESSAGING_WEB_BASE_URL:http://localhost:4200}
+    public-api-url: ${MESSAGING_PUBLIC_API_URL:http://localhost:8080}
+    unsubscribe:
+      secret: ${MESSAGING_UNSUBSCRIBE_SECRET:}
+      token-ttl: P365D
+
+  notifications:
+    read-retention: P30D
+
+  realtime:
+    allowed-origins: ${MESSAGING_WS_ALLOWED_ORIGINS:http://localhost:4200}
+    push-channel: rebyte:messaging:push
+    heartbeat-ms: 10000
+    message-size-limit: 16384
+    time-to-first-message-ms: 10000
+    expiry-sweep-ms: 5000
+    presence:
+      ttl-ms: 45000
+      refresh-ms: 15000
+    typing:
+      ttl-ms: 5000
+      min-interval-ms: 1500
+
+  outbox:
+    relay:
+      fixed-delay-ms: 1000
+      batch-size: 100
+      max-batches-per-tick: 50
+      confirm-timeout-ms: 5000
+      lag-threshold-seconds: 60
+      lease-seconds: 60
+    reaper:
+      fixed-delay-ms: 120000
+    purge:
+      retention-days: 7
+      cron: "0 0 3 * * *"

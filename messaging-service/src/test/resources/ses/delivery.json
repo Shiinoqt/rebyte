@@ -1,0 +1,21 @@
+{
+  "eventType": "Delivery",
+  "delivery": {
+    "timestamp": "2026-10-01T14:00:03.000Z",
+    "processingTimeMillis": 3000,
+    "recipients": ["delivered@example.test"],
+    "smtpResponse": "250 2.0.0 OK",
+    "reportingMTA": "mta.example.test"
+  },
+  "mail": {
+    "timestamp": "2026-10-01T14:00:00.000Z",
+    "source": "no-reply@example.test",
+    "sendingAccountId": "123456789012",
+    "messageId": "ses-message-delivery-0005",
+    "destination": ["delivered@example.test"],
+    "headersTruncated": false,
+    "tags": {
+      "ses:configuration-set": ["rebyte-transactional"]
+    }
+  }
+}
