@@ -36,6 +36,7 @@ const sourceRoot = fileURLToPath(new URL("../../", import.meta.url));
 const buildCommands = [
   "npm install --global npm@12.2.0",
   "npm --prefix web ci",
+  "docker build --tag rebyte/rabbitmq:4.1-delayed infra/rabbitmq",
   "node --test scripts/demo/*.test.mjs",
   "node scripts/demo/check-release.mjs",
   "./mvnw -B verify",
