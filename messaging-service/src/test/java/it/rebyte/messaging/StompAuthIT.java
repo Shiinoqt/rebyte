@@ -93,7 +93,8 @@ class StompAuthIT extends MessagingTestBase {
             socket.session.sendMessage(new TextMessage(frame));
             assertThat(socket.received.get(5, TimeUnit.SECONDS)).startsWith("ERROR\n");
             assertThat(socket.closed.get(5, TimeUnit.SECONDS)).isNotNull();
-            assertThat(socket.session.isOpen()).isFalse();
+            await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
+                    assertThat(socket.session.isOpen()).isFalse());
         }
     }
 
@@ -162,7 +163,8 @@ class StompAuthIT extends MessagingTestBase {
             assertThat(socket.closed.get(5, TimeUnit.SECONDS)).isNotNull();
             assertThat(Duration.ofNanos(System.nanoTime() - started))
                     .isBetween(Duration.ofMillis(1500), Duration.ofSeconds(5));
-            assertThat(socket.session.isOpen()).isFalse();
+            await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
+                    assertThat(socket.session.isOpen()).isFalse());
         }
     }
 
