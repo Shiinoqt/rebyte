@@ -160,7 +160,7 @@ for (const [name, mutate] of [
     "skipped backend tests",
     (value) =>
       (value.jobs.build.steps.find(
-        (step) => step.run === "./mvnw -B verify",
+        (step) => step.run?.startsWith("./mvnw -B verify"),
       ).run += " -DskipTests"),
   ],
   [
@@ -185,10 +185,32 @@ for (const [name, mutate] of [
   [
     "ignored failures",
     (value) =>
-      (value.jobs.build.steps.find((step) => step.run === "./mvnw -B verify")[
+      (value.jobs.build.steps.find((step) => step.run?.startsWith("./mvnw -B verify"))[
         "continue-on-error"
       ] = true),
   ],
+  ["unbounded build job", (value) => delete value.jobs.build["timeout-minutes"]],
+  ["extended publication job", (value) => (value.jobs.publish["timeout-minutes"] = 31)],
+  ["unbounded Java verification", (value) => delete value.jobs.build.steps.find(
+    (step) => step.run?.startsWith("./mvnw -B verify"),
+  )["timeout-minutes"]],
+  ["extended Java verification", (value) => (value.jobs.build.steps.find(
+    (step) => step.run?.startsWith("./mvnw -B verify"),
+  )["timeout-minutes"] = 36)],
+  ["unbounded native runner proof", (value) => delete value.jobs.build.steps.find(
+    (step) => step.run === "node scripts/demo/runner-image-smoke.mjs",
+  )["timeout-minutes"]],
+  ["missing unit fail-fast", (value) => {
+    const step = value.jobs.build.steps.find((step) => step.run?.startsWith("./mvnw -B verify"));
+    step.run = step.run.replace(" -Dsurefire.skipAfterFailureCount=1", "");
+  }],
+  ["missing integration fail-fast", (value) => {
+    const step = value.jobs.build.steps.find((step) => step.run?.startsWith("./mvnw -B verify"));
+    step.run = step.run.replace(" -Dfailsafe.skipAfterFailureCount=1", "");
+  }],
+  ["extended intermediate artifact retention", (value) => (value.jobs.build.steps.find(
+    (step) => step.with?.name === "demo-contexts",
+  ).with["retention-days"] = 3)],
   [
     "unreviewed action tag",
     (value) => (value.jobs.build.steps[0].uses = "actions/checkout@main"),
@@ -227,7 +249,7 @@ for (const [name, mutate] of [
     "step environment skips tests",
     (value) =>
       (value.jobs.build.steps.find(
-        (step) => step.run === "./mvnw -B verify",
+        (step) => step.run?.startsWith("./mvnw -B verify"),
       ).env = { MAVEN_OPTS: "-Dmaven.test.skip=true" }),
   ],
 ]) {
