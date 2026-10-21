@@ -15,17 +15,16 @@ import org.testcontainers.junit.jupiter.Container;
  * own {@code files_modified} list originally placed it. Task 2's own
  * {@code OutboxRelayResilienceIT} needs real publisher confirms (D-18) too
  * — not just Task 3's exactly-once test — and Testcontainers' own
- * throwaway broker credentials (auto-wired via {@code @ServiceConnection},
- * exactly like {@code MySqlTestBase}'s MySQL container) avoid ever needing
+ * throwaway broker credentials (auto-wired via the container's own {@code
+ * @ServiceConnection}) avoid ever needing
  * the real {@code docker-compose} broker's {@code RABBITMQ_PASSWORD},
  * which is a protected secret this executor cannot read. Task 3 reuses
  * this base as originally planned.
  *
  * <p>{@code @DirtiesContext(AFTER_CLASS)} is inherited from
- * {@code MySqlTestBase} and already covers this class too — see that
- * class's Javadoc for the container/context-cache mismatch it fixes; the
- * same class of trap applies to a recycled RabbitMQ container exactly as
- * it did to MySQL.
+ * {@code MySqlTestBase} and covers this class too: the RabbitMQ container
+ * below is still started and stopped per class, so a later class must not
+ * reuse a cached context pointed at a stopped broker.
  */
 public abstract class RabbitTestBase extends MySqlTestBase {
 

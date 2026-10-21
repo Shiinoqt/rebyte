@@ -52,8 +52,11 @@ public final class StompTestClient implements AutoCloseable {
 
                     @Override
                     public void afterConnectionClosed(WebSocketSession socket, CloseStatus status) throws Exception {
-                        closed.complete(status);
-                        super.afterConnectionClosed(socket, status);
+                        try {
+                            super.afterConnectionClosed(socket, status);
+                        } finally {
+                            closed.complete(status);
+                        }
                     }
                 }, headers, uri, protocols, extensions, attributes);
             }

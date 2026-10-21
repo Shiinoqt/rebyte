@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.net.InetSocketAddress;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,15 +22,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,8 +39,8 @@ import com.sun.net.httpserver.HttpServer;
 
 /**
  * Shared {@code *IT} infrastructure for order-service (03-04-PLAN.md Task 1
- * and Task 2): a single reused real MySQL container (D-16's guard proof
- * needs real MySQL, not H2), Eureka/RabbitMQ silenced the same way {@code
+ * and Task 2): one real MySQL container per test JVM with a fresh database
+ * per Spring context (D-16's guard proof needs real MySQL, not H2), Eureka/RabbitMQ silenced the same way {@code
  * user-service}'s {@code MySqlTestBase} does, a test-only {@link JwtDecoder}
  * (order-service declares no {@code nimbus-jose-jwt} dependency, mirroring
  * catalog-service's {@code TestJwtSupport}), and {@link CheckoutStub} — an
@@ -47,12 +50,12 @@ import com.sun.net.httpserver.HttpServer;
  * MySQL guard and real Feign wiring, not the downstream services'
  * behaviour.
  *
- * <p>{@code @DirtiesContext(AFTER_CLASS)}: same fix as {@code
- * user-service}'s {@code MySqlTestBase} — without it, a second {@code *IT}
- * class with byte-identical Spring context configuration can reuse the
- * FIRST class's cached context (and its {@code HikariDataSource}, whose
- * JDBC URL was fixed at container-creation time), while Testcontainers may
- * have already recycled the {@code @Container} field between classes.
+ * <p>{@code @DirtiesContext(AFTER_CLASS)}: closing the context after each
+ * class makes the next class load its own, so {@link #freshDatabase} runs
+ * again and that class starts on an empty, freshly migrated database.
+ * Without it, a class with byte-identical configuration would reuse the
+ * cached context and see the previous class's rows, and subclasses with
+ * their own per-class containers would reach recycled ones.
  */
 @Testcontainers
 @TestPropertySource(properties = {
@@ -69,9 +72,28 @@ import com.sun.net.httpserver.HttpServer;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class OrderIntegrationTestBase {
 
-    @Container
-    @ServiceConnection
-    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4");
+    // root: CREATE DATABASE needs a privilege the image's non-root user is never granted.
+    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4").withUsername("root");
+
+    // Started once per JVM and never stopped here, so Ryuk removes it when the JVM exits.
+    static {
+        MYSQL.start();
+    }
+
+    private static final AtomicInteger DATABASES = new AtomicInteger();
+
+    @DynamicPropertySource
+    static void freshDatabase(DynamicPropertyRegistry registry) throws SQLException {
+        String database = "order_" + DATABASES.incrementAndGet();
+        try (Connection connection = MYSQL.createConnection("");
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE DATABASE " + database);
+        }
+        registry.add("spring.datasource.url", () -> "jdbc:mysql://" + MYSQL.getHost() + ":"
+                + MYSQL.getMappedPort(MySQLContainer.MYSQL_PORT) + "/" + database);
+        registry.add("spring.datasource.username", MYSQL::getUsername);
+        registry.add("spring.datasource.password", MYSQL::getPassword);
+    }
 
     /**
      * local-auth-style bearer token: the {@code sub} claim only, decoded by

@@ -1,11 +1,14 @@
 package it.rebyte.payment.support;
 
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -15,7 +18,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
@@ -24,9 +26,9 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 
 /**
  * Shared {@code *IT} infrastructure for payment-service (03-05-PLAN.md Task
- * 1 and Task 2): a single reused real MySQL container, Eureka/RabbitMQ
- * silenced the same way order-service's {@code OrderIntegrationTestBase}
- * does, a test-only {@link JwtDecoder} (payment-service declares no {@code
+ * 1 and Task 2): one real MySQL container per test JVM with a fresh
+ * database per Spring context, Eureka/RabbitMQ silenced the same way
+ * order-service's {@code OrderIntegrationTestBase} does, a test-only {@link JwtDecoder} (payment-service declares no {@code
  * nimbus-jose-jwt} dependency, same as order-service), and two independent
  * official WireMock instances (03-05-PLAN.md Task 1: "test-scoped official
  * WireMock artifact") — one standing in for the real PayPal sandbox API,
@@ -34,11 +36,13 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
  * endpoint (Task 2). No live network call and no real PayPal/order-service
  * credentials are ever required to run this module's tests.
  *
- * <p>{@code @DirtiesContext(AFTER_CLASS)}: same fix order-service's base
- * class documents — without it, a second {@code *IT} class with
- * byte-identical Spring context configuration can reuse the FIRST class's
- * cached context and its now-stale {@code HikariDataSource}/Feign client
- * URLs, which point at a WireMock instance from a different test class.
+ * <p>{@code @DirtiesContext(AFTER_CLASS)}: closing the context after each
+ * class makes the next class load its own, so {@link #freshDatabase} runs
+ * again and that class starts on an empty, freshly migrated database, and
+ * {@code wireMockProperties} points it at the WireMock ports of its own run.
+ * Without it, a class with byte-identical configuration would reuse the
+ * cached context, see the previous class's rows, and call WireMock ports
+ * from a different test class.
  */
 @Testcontainers
 @TestPropertySource(properties = {
@@ -61,9 +65,28 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class PaymentIntegrationTestBase {
 
-    @Container
-    @ServiceConnection
-    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4");
+    // root: CREATE DATABASE needs a privilege the image's non-root user is never granted.
+    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4").withUsername("root");
+
+    // Started once per JVM and never stopped here, so Ryuk removes it when the JVM exits.
+    static {
+        MYSQL.start();
+    }
+
+    private static final AtomicInteger DATABASES = new AtomicInteger();
+
+    @DynamicPropertySource
+    static void freshDatabase(DynamicPropertyRegistry registry) throws SQLException {
+        String database = "payment_" + DATABASES.incrementAndGet();
+        try (Connection connection = MYSQL.createConnection("");
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE DATABASE " + database);
+        }
+        registry.add("spring.datasource.url", () -> "jdbc:mysql://" + MYSQL.getHost() + ":"
+                + MYSQL.getMappedPort(MySQLContainer.MYSQL_PORT) + "/" + database);
+        registry.add("spring.datasource.username", MYSQL::getUsername);
+        registry.add("spring.datasource.password", MYSQL::getPassword);
+    }
 
     /** Stands in for the real PayPal sandbox REST API (OAuth token, Orders v2 create/capture). */
     @RegisterExtension

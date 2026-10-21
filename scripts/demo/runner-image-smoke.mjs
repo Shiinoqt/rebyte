@@ -20,20 +20,34 @@ try{
   const build=result(['buildx','build','--platform','linux/amd64','--provenance=false','--load','--file',join(context,'Dockerfile'),'--tag',image,context]);
   assert.equal(build.status,0,'actual final runner build failed: '+build.stderr.slice(-2000));
   const imageId=docker('image','inspect',image,'--format','{{.Id}}');pass('final amd64 image builds from the exact allowlisted CI context');
+  const wait=async(container,action,timeout=120000)=>{
+    const deadline=Date.now()+timeout;
+    for(;;){try{await action();return;}catch(error){
+      const state=JSON.parse(docker('inspect',container,'--format','{{json .State}}'));
+      assert.ok(state.Running,`Readiness fixture exited: ${container}; exit=${state.ExitCode}; oom=${state.OOMKilled}`);
+      if(Date.now()>deadline)throw error;
+      await delay(300);
+    }}
+  };
+  const exited=fixture.project+'-readiness-exited';
+  docker('run','-d','--name',exited,image,'node','-e','process.exit(17)');fixture.containers.push(exited);
+  assert.equal(docker('wait',exited),'17');
+  let attempts=0;
+  await assert.rejects(wait(exited,()=>{attempts++;throw new Error('not ready');},1000),/Readiness fixture exited:.*exit=17; oom=false/);
+  assert.equal(attempts,1);pass('exited fixture readiness reports exit state without polling until deadline');
   host=await createRunnerHost(fixture,image);
   for(const name of ['runner-native-probe.mjs','reset-fixture.mjs'])cpSync(join('scripts/demo/fixtures',name),join(host.data,name));
   const mongo=fixture.project+'-mongo-proof',mongoVolume=fixture.project+'-mongo-data';
   docker('volume','create',mongoVolume);fixture.volumes.push(mongoVolume);
   docker('run','-d','--name',mongo,'--network',fixture.backend,'--network-alias','mongo-demo','--memory','512m','--env','MONGO_INITDB_ROOT_USERNAME=root','--env','MONGO_INITDB_ROOT_PASSWORD=fixture','--mount',`type=volume,src=${mongoVolume},dst=/data/db`,'mongo@sha256:1f995ad6fdb93244a1addab1b58f934a0bc2f5643c38e02f5e9d7f0c7d227a7b');fixture.containers.push(mongo);
-  const wait=async(action,timeout=120000)=>{const deadline=Date.now()+timeout;for(;;){try{await action();return;}catch(error){if(Date.now()>deadline)throw error;await delay(300);}}};
-  await wait(()=>docker('exec','--env','MYSQL_PWD=fixture',fixture.actorIds['mysql-app'],'mysql','--host=mysql-app','--user=root','--execute','SELECT 1;'));
-  await wait(()=>docker('exec',mongo,'mongosh','--quiet','--username','root','--password','fixture','--authenticationDatabase','admin','--eval','db.runCommand({ping:1})'));
+  await wait(fixture.actorIds['mysql-app'],()=>docker('exec','--env','MYSQL_PWD=fixture',fixture.actorIds['mysql-app'],'mysql','--host=mysql-app','--user=root','--execute','SELECT 1;'));
+  await wait(mongo,()=>docker('exec',mongo,'mongosh','--quiet','--username','root','--password','fixture','--authenticationDatabase','admin','--eval','db.runCommand({ping:1})'));
   docker('rm','-f',fixture.actorIds['demo-runner']);
   const runner=fixture.project+'-demo-runner';
   const mounts=['--mount',`type=bind,src=${host.mountpoint}/client,dst=/run/secrets/demo-reset,readonly`,'--mount',`type=bind,src=${host.data},dst=/harness,readonly`];
   docker('run','-d','--name',runner,'--network',fixture.backend,'--network-alias','demo-runner','--memory','768m','--cpus','0.50','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges:true','--tmpfs','/tmp:rw,noexec,nosuid,size=64m,mode=1777','--tmpfs','/run/demo-reset:rw,noexec,nosuid,size=1m,uid=10001,gid=10001,mode=0700','--env','NODE_EXTRA_CA_CERTS=/run/secrets/demo-reset/ca.pem','--label',`com.docker.compose.project=${fixture.project}`,'--label','com.docker.compose.service=demo-runner',...mounts,image);
   fixture.actorIds['demo-runner']=docker('inspect',runner,'--format','{{.Id}}');
-  await wait(()=>{assert.equal(docker('inspect',runner,'--format','{{.State.Health.Status}}'),'healthy');});
+  await wait(runner,()=>{assert.equal(docker('inspect',runner,'--format','{{.State.Health.Status}}'),'healthy');});
   const inspect=JSON.parse(docker('inspect',runner))[0];assert.equal(inspect.Config.User,'10001:10001');assert.equal(inspect.HostConfig.ReadonlyRootfs,true);assert.deepEqual(inspect.HostConfig.PortBindings,{});assert.ok(inspect.Mounts.every(mount=>mount.Destination!=='/var/run/docker.sock'));pass('private nonroot running target validates protected config and has no host ports or daemon socket');
   const probe=(mode,ok=true)=>{
     const output=result(['exec',runner,'node','/harness/runner-native-probe.mjs',mode]);
