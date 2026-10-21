@@ -69,8 +69,8 @@ class OfferAcceptRaceIT extends OrderIntegrationTestBase {
                 return accept(offer);
             }, pool);
             awaitReserveCalls(listing, 1);
-            ResponseEntity<Map> loser = first.isDone() ? first.get(5, TimeUnit.SECONDS)
-                    : second.get(5, TimeUnit.SECONDS);
+            ResponseEntity<Map> loser = first.applyToEither(second, response -> response)
+                    .get(5, TimeUnit.SECONDS);
             assertThat(loser.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
             assertThat(loser.getBody().get("title")).isEqualTo("offer-accept-in-progress");
             release.countDown();

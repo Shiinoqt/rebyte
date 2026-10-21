@@ -34,17 +34,17 @@ const baseFamilies = {
 };
 const sourceRoot = fileURLToPath(new URL("../../", import.meta.url));
 const buildCommands = [
-  "npm install --global npm@12.2.0",
-  "npm --prefix web ci",
-  "docker build --tag rebyte/rabbitmq:4.1-delayed infra/rabbitmq",
-  "node --test scripts/demo/*.test.mjs",
-  "node scripts/demo/check-release.mjs",
-  "./mvnw -B verify",
-  "npm --prefix web run test:ci",
-  "npm --prefix web run build",
-  "node web/scripts/demo-image-smoke.mjs",
-  "node scripts/demo/check-release.mjs prepare release-contexts",
-  "node scripts/demo/runner-image-smoke.mjs",
+  ["npm install --global npm@12.2.0", 3],
+  ["npm --prefix web ci", 5],
+  ["docker build --tag rebyte/rabbitmq:4.1-delayed infra/rabbitmq", 5],
+  ["node --test scripts/demo/*.test.mjs", 8],
+  ["node scripts/demo/check-release.mjs", 1],
+  ["./mvnw -B verify -Dsurefire.skipAfterFailureCount=1 -Dfailsafe.skipAfterFailureCount=1", 35],
+  ["npm --prefix web run test:ci", 5],
+  ["npm --prefix web run build", 5],
+  ["node web/scripts/demo-image-smoke.mjs", 5],
+  ["node scripts/demo/check-release.mjs prepare release-contexts", 5],
+  ["node scripts/demo/runner-image-smoke.mjs", 25],
 ];
 const actionRepos = [
   "actions/checkout",
@@ -89,6 +89,8 @@ export function validateWorkflow(workflow, dockerfiles) {
     "only build and publish jobs",
   );
   const { build, publish } = workflow.jobs;
+  assert.equal(build["timeout-minutes"], 60, "bounded build runtime");
+  assert.equal(publish["timeout-minutes"], 30, "bounded publication runtime");
   assert.deepEqual(
     build.permissions,
     { contents: "read" },
@@ -145,9 +147,9 @@ export function validateWorkflow(workflow, dockerfiles) {
     );
   }
   assert.deepEqual(
-    build.steps.filter((step) => step.run).map((step) => step.run),
+    build.steps.filter((step) => step.run).map((step) => [step.run, step["timeout-minutes"]]),
     buildCommands,
-    "one verified reactor and SPA build, then artifact preparation",
+    "one bounded verified reactor and SPA build, then artifact preparation",
   );
   assert.deepEqual(
     publish.steps.filter((step) => step.run).map((step) => step.run),
@@ -181,7 +183,7 @@ export function validateWorkflow(workflow, dockerfiles) {
       name: "demo-contexts",
       path: "release-contexts",
       "if-no-files-found": "error",
-      "retention-days": 3,
+      "retention-days": 1,
       "compression-level": 0,
     },
     "upload only staged contexts",

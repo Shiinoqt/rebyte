@@ -23,7 +23,7 @@
   "jobs": {
     "build": {
       "runs-on": "ubuntu-24.04",
-      "timeout-minutes": 90,
+      "timeout-minutes": 60,
       "permissions": {
         "contents": "read"
       },
@@ -51,48 +51,58 @@
         },
         {
           "name": "Use the repository npm version",
-          "run": "npm install --global npm@12.2.0"
+          "run": "npm install --global npm@12.2.0",
+          "timeout-minutes": 3
         },
         {
           "name": "Install locked frontend dependencies",
-          "run": "npm --prefix web ci"
+          "run": "npm --prefix web ci",
+          "timeout-minutes": 5
         },
         {
           "name": "Build the RabbitMQ test fixture image",
-          "run": "docker build --tag rebyte/rabbitmq:4.1-delayed infra/rabbitmq"
+          "run": "docker build --tag rebyte/rabbitmq:4.1-delayed infra/rabbitmq",
+          "timeout-minutes": 5
         },
-
         {
           "name": "Test demo tooling guards",
-          "run": "node --test scripts/demo/*.test.mjs"
+          "run": "node --test scripts/demo/*.test.mjs",
+          "timeout-minutes": 8
         },
         {
           "name": "Check release policy",
-          "run": "node scripts/demo/check-release.mjs"
+          "run": "node scripts/demo/check-release.mjs",
+          "timeout-minutes": 1
         },
         {
-          "name": "Verify the complete Java reactor once",
-          "run": "./mvnw -B verify"
+          "name": "Verify the complete Java reactor and stop after a failure",
+          "run": "./mvnw -B verify -Dsurefire.skipAfterFailureCount=1 -Dfailsafe.skipAfterFailureCount=1",
+          "timeout-minutes": 35
         },
         {
           "name": "Test the frontend",
-          "run": "npm --prefix web run test:ci"
+          "run": "npm --prefix web run test:ci",
+          "timeout-minutes": 5
         },
         {
           "name": "Compile the frontend once",
-          "run": "npm --prefix web run build"
+          "run": "npm --prefix web run build",
+          "timeout-minutes": 5
         },
         {
           "name": "Verify the actual SPA image and TLS boundary",
-          "run": "node web/scripts/demo-image-smoke.mjs"
+          "run": "node web/scripts/demo-image-smoke.mjs",
+          "timeout-minutes": 5
         },
         {
           "name": "Stage only verified runtime artifacts",
-          "run": "node scripts/demo/check-release.mjs prepare release-contexts"
+          "run": "node scripts/demo/check-release.mjs prepare release-contexts",
+          "timeout-minutes": 5
         },
         {
           "name": "Prove the final private runner with native tools",
-          "run": "node scripts/demo/runner-image-smoke.mjs"
+          "run": "node scripts/demo/runner-image-smoke.mjs",
+          "timeout-minutes": 25
         },
         {
           "uses": "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
@@ -100,7 +110,7 @@
             "name": "demo-contexts",
             "path": "release-contexts",
             "if-no-files-found": "error",
-            "retention-days": 3,
+            "retention-days": 1,
             "compression-level": 0
           }
         }
