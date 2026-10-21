@@ -12,6 +12,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.messaging.converter.SimpleMessageConverter;
+import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.messaging.simp.stomp.StompFrameHandler;
 import org.springframework.messaging.simp.stomp.StompHeaders;
@@ -137,7 +138,11 @@ public final class StompTestClient implements AutoCloseable {
             if (isConnected()) {
                 try {
                     session.disconnect();
-                } catch (IllegalStateException closedByServer) {
+                } catch (IllegalStateException | MessageDeliveryException closedByServer) {
+                    if (closedByServer instanceof MessageDeliveryException
+                            && !(closedByServer.getCause() instanceof IllegalStateException)) {
+                        throw closedByServer;
+                    }
                     // The server may close a refused session between the isConnected check and the DISCONNECT.
                 }
             }
