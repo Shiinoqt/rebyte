@@ -1,39 +1,33 @@
 package it.rebyte.user.support;
 
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Base condivisa per i test {@code *IT} di user-service (D-23): un unico
- * container MySQL, riusato da ogni sottoclasse.
+ * container MySQL per JVM di test, con un database nuovo per ogni contesto
+ * Spring.
  *
  * <p>{@code eureka.client.enabled=false}: every {@code *IT} context also
  * runs a real Eureka client retrying registration against {@code
  * localhost:8761} (nothing listens there in a plain {@code verify} run) —
  * this override removes that noise.
  *
- * <p><b>{@code @DirtiesContext(AFTER_CLASS)} (D-23 stability fix, plan
- * 01-03).</b> With this plan the number of {@code *IT} classes grew from 2
- * to 5. Two classes with byte-identical {@code @SpringBootTest} annotations
- * (no {@code @DynamicPropertySource}) hit Spring's test-context CACHE: the
- * second class reuses the FIRST class's already-built
- * {@code ApplicationContext} — including its {@code HikariDataSource},
- * whose JDBC URL was fixed at creation time from {@code
- * MYSQL.getJdbcUrl()} at THAT moment. But the {@code @Testcontainers}
- * JUnit5 extension evaluates the {@code @Container} field again per test
- * CLASS and was observed recycling the container between classes (a new
- * container ID and mapped port each time), so the reused, cached
- * {@code ApplicationContext}'s pool kept pointing at the now-dead first
- * container while an unrelated second container sat there unused —
- * surfacing as an intermittent {@code CannotGetJdbcConnectionException}
- * ("Connection refused") on the second class. Forcing Spring to discard
- * the cached context after every {@code *IT} class removes the mismatch
- * entirely: each class always builds a fresh context against whatever
- * container is actually live at that moment.
+ * <p>{@code @DirtiesContext(AFTER_CLASS)}: closing the context after each
+ * class makes the next class load its own, so {@link #freshDatabase} runs
+ * again and that class starts on an empty, freshly migrated database.
+ * Without it, a class with byte-identical configuration would reuse the
+ * cached context and see the previous class's rows, and {@link
+ * RabbitTestBase} subclasses would reach a recycled broker.
  *
  * <p><b>{@code spring.rabbitmq.port=1} (plan 01-05, found via genuine RED
  * evidence).</b> {@code ReviewCreatedListener} is the first {@code
@@ -76,7 +70,26 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class MySqlTestBase {
 
-    @Container
-    @ServiceConnection
-    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4");
+    // root: CREATE DATABASE needs a privilege the image's non-root user is never granted.
+    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4").withUsername("root");
+
+    // Started once per JVM and never stopped here, so Ryuk removes it when the JVM exits.
+    static {
+        MYSQL.start();
+    }
+
+    private static final AtomicInteger DATABASES = new AtomicInteger();
+
+    @DynamicPropertySource
+    static void freshDatabase(DynamicPropertyRegistry registry) throws SQLException {
+        String database = "user_" + DATABASES.incrementAndGet();
+        try (Connection connection = MYSQL.createConnection("");
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE DATABASE " + database);
+        }
+        registry.add("spring.datasource.url", () -> "jdbc:mysql://" + MYSQL.getHost() + ":"
+                + MYSQL.getMappedPort(MySQLContainer.MYSQL_PORT) + "/" + database);
+        registry.add("spring.datasource.username", MYSQL::getUsername);
+        registry.add("spring.datasource.password", MYSQL::getPassword);
+    }
 }
