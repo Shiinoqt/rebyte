@@ -1,4 +1,9 @@
-FROM public.ecr.aws/aws-cli/aws-cli@sha256:5d39fd52f236ed01c5c25fba66c9aebcfc6cbb88e7bb1b727c5fe1f150540597 AS aws
+# public.ecr.aws throttles anonymous pulls from hosted runners; the signed AWS zip is pinned by checksum instead.
+FROM node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS aws
+RUN apt-get update -qq && apt-get install -y --no-install-recommends unzip=6.0-28+deb12u1
+ADD --checksum=sha256:16a4d39d60b631d884f1260fd7755b72daef15baf6cac21131c6c71676164b37 \
+    https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.38.2.zip /tmp/awscli.zip
+RUN unzip -q /tmp/awscli.zip -d /tmp && /tmp/aws/install
 FROM mysql@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242 AS mysql
 FROM mongo@sha256:1f995ad6fdb93244a1addab1b58f934a0bc2f5643c38e02f5e9d7f0c7d227a7b AS mongo
 FROM redis@sha256:4fa24486b8bcca8eec45ee0eb166edc674795e53a2b53d1a9ef263eecebaac85 AS redis
