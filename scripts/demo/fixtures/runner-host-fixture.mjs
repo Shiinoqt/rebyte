@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {mkdirSync,readFileSync,writeFileSync} from 'node:fs';
+import {chmodSync,mkdirSync,readFileSync,writeFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {docker,NGINX_IMAGE} from './supervisor-fixture.mjs';
@@ -16,6 +16,8 @@ export async function createRunnerHost(fixture,image){
   assert.match(mountpoint,/^\/var\/lib\/docker\/volumes\/[a-z0-9-]+\/_data$/);
   const control=mountpoint+'/control',server=fixture.project+'-ssh-proof',serverImage=fixture.project+'-ssh-image';
   const data=join(fixture.root,'data'),build=join(fixture.root,'ssh-build');mkdirSync(build);
+  // The runner image's uid 10001 reads this fixture-only bind mount; Linux enforces the host 0700 mode, Docker Desktop does not.
+  chmodSync(data,0o755);
   const files=Object.fromEntries(['ca.pem','server.pem','server.key'].map(name=>['tls/'+name,readFileSync(join(fixture.root,'tls',name)).toString('base64')]));
   files['control/demo-supervisor.sh']=readFileSync(resolve('scripts/demo/demo-supervisor.sh')).toString('base64');
   files['dynamic/base.yml']=readFileSync(join(fixture.root,'dynamic/base.yml')).toString('base64');
