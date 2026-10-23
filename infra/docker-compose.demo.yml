@@ -569,16 +569,16 @@
         "retries": 12,
         "start_period": "90s"
       },
-      "labels": {
-        "traefik.enable": "true",
-        "traefik.docker.network": "${COOLIFY_PROXY_NETWORK:?Set COOLIFY_PROXY_NETWORK}",
-        "traefik.http.routers.rebyte-demo-api.rule": "Host(`api.rebyte.tech`)",
-        "traefik.http.routers.rebyte-demo-api.entrypoints": "https",
-        "traefik.http.routers.rebyte-demo-api.tls": "true",
-        "traefik.http.routers.rebyte-demo-api.tls.certresolver": "letsencrypt",
-        "traefik.http.routers.rebyte-demo-api.service": "rebyte-demo-api",
-        "traefik.http.services.rebyte-demo-api.loadbalancer.server.port": "8080"
-      }
+      "labels": [
+        "traefik.enable=true",
+        "traefik.docker.network=${COOLIFY_PROXY_NETWORK:?Set COOLIFY_PROXY_NETWORK}",
+        "traefik.http.routers.rebyte-demo-api.rule=Host(`api.rebyte.tech`)",
+        "traefik.http.routers.rebyte-demo-api.entrypoints=https",
+        "traefik.http.routers.rebyte-demo-api.tls=true",
+        "traefik.http.routers.rebyte-demo-api.tls.certresolver=letsencrypt",
+        "traefik.http.routers.rebyte-demo-api.service=rebyte-demo-api",
+        "traefik.http.services.rebyte-demo-api.loadbalancer.server.port=8080"
+      ]
     },
     "demo-runner": {
       "image": "${GHCR_NAMESPACE:?Set GHCR_NAMESPACE}/demo-runner:${DEMO_IMAGE_TAG:?Set DEMO_IMAGE_TAG}",

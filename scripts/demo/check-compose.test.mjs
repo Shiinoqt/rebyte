@@ -186,6 +186,30 @@ for (const replacement of [
   });
 }
 
+// Coolify's raw Compose parser appends list-form labels to every service; a map would gain integer keys.
+test("services still render after Coolify appends its labels", () => {
+  const directory = mkdtempSync(join(tmpdir(), "rebyte-compose-coolify-"));
+  try {
+    mkdirSync(join(directory, "infra"));
+    const compose = source();
+    for (const service of Object.values(compose.services)) {
+      assert.ok(service.labels === undefined || Array.isArray(service.labels));
+      service.labels = [...(service.labels ?? []), "coolify.managed=true"];
+    }
+    writeFileSync(
+      join(directory, "infra/docker-compose.demo.yml"),
+      JSON.stringify(compose),
+    );
+    const labels = renderCompose(directory, fakeEnvironment(compose)).services[
+      "api-gateway"
+    ].labels;
+    assert.equal(labels["coolify.managed"], "true");
+    assert.equal(labels["traefik.enable"], "true");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("local service Compose only loses hardcoded PayPal base URL", () => {
   const text = readFileSync("infra/docker-compose.services.yml", "utf8");
   assert.doesNotMatch(text, /^\s+PAYPAL_BASE_URL:/m);
