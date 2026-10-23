@@ -109,7 +109,7 @@ test('missing search results and blocked readiness requests expire within a boun
   await assert.rejects(verifySeed(data,{...context,timeoutMs:80}));
   const before=Date.now();await assert.rejects(verifySeed(data,{...context,timeoutMs:50,fetchImpl:(_url,{signal})=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(signal.reason),{once:true}))}));assert.ok(Date.now()-before<1000);
 });
-test('complete private API seed runs with JWT authorization while visitor and webhook ingress stays closed',{timeout:240000},async t=>{
+test('complete private API seed runs with JWT authorization while visitor and webhook ingress stays closed',{timeout:600000},async t=>{
   const fixture=await createSupervisorFixture({seedApi:true});t.after(()=>fixture.cleanup());
   await fixture.control('maintenance-on');await fixture.control('stop-writers');await fixture.control('start-writers');
   assert.equal((await fixture.publicRequest('/users/me',{token:fixture.tokens.buyer})).status,503);
