@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 // Stateful HTTP fixture: domain services and S3 are tested separately from this API contract.
 export function createSeedApiFixture(targets,{failureFile}={}) {
   const roles=Object.keys(targets.preservedSubjects);
-  const state={profiles:{},categories:['Hardware','Software'].map(name=>({id:randomUUID(),name})),attributes:[],listings:[],uploads:[],favourites:[],follows:[],conversations:[],notifications:[],calls:[],facetsReady:true};
+  const state={profiles:{},categories:['Hardware','Software'].map(name=>({id:randomUUID(),name})),attributes:[],listings:[],uploads:[],favourites:[],follows:[],conversations:[],notifications:[],calls:[],searchReady:true};
   const requiredRole=(actual,expected)=>assert.ok(expected.includes(actual),'Fixture role refused');
   function handle({method,path,claims,body}) {
     const role=roles.find(role=>targets.preservedSubjects[role]===claims.sub);
@@ -19,9 +19,10 @@ export function createSeedApiFixture(targets,{failureFile}={}) {
     if(method==='GET'&&path==='/users/me')return {sub:claims.sub,...state.profiles[role]};
     if(method==='PUT'&&path==='/users/me'){state.profiles[role]={...body};return {...body};}
     if(method==='POST'&&path==='/users/me/developer-profile'){requiredRole(role,['developer']);state.profiles[role].isDeveloper=true;return {};}
-    if(method==='GET'&&path==='/categories')return state.categories.filter(category=>!category.parentId);
+    if(method==='GET'&&path==='/categories'){const tree=parent=>state.categories.filter(category=>category.parentId===parent).map(category=>({id:category.id,name:category.name,children:tree(category.id)}));return tree(undefined);}
     if(method==='POST'&&path==='/categories'){
       requiredRole(role,['admin']);assert.ok(state.categories.some(category=>category.id===body.parentId));
+      assert.ok(!state.categories.some(category=>category.parentId===body.parentId&&category.name===body.name),'Duplicate sibling category');
       const category={id:randomUUID(),...body};state.categories.push(category);return category;
     }
     if(method==='POST'&&parts[0]==='categories'&&parts[2]==='attributes'){
@@ -30,18 +31,19 @@ export function createSeedApiFixture(targets,{failureFile}={}) {
     }
     if(method==='POST'&&['hardware','software'].includes(parts[1])&&parts.length===2){
       requiredRole(role,parts[1]==='hardware'?['seller']:['developer']);
-      const attribute=state.attributes.find(attribute=>attribute.categoryId===body.categoryId);
-      assert.equal(body.attributes[0].attributeId,attribute.id);assert.ok(attribute.allowedValues.includes(body.attributes[0].value));
-      assert.ok(Number(body.price)>0);assert.deepEqual(body.paymentMethods,['PAYPAL']);
+      const rootOf=id=>{let category=state.categories.find(item=>item.id===id);while(category?.parentId)category=state.categories.find(item=>item.id===category.parentId);return category;};
+      assert.ok(rootOf(body.categoryId)?.name===(parts[1]==='hardware'?'Hardware':'Software')&&!state.categories.some(category=>category.parentId===body.categoryId));
+      assert.deepEqual(body.attributes,[]);assert.ok(Number(body.price)>0);assert.deepEqual(body.paymentMethods,['PAYPAL']);
       const listing={id:randomUUID(),type:parts[1],sellerSub:claims.sub,...body,photos:[],artifactAvailable:false};state.listings.push(listing);return {id:listing.id};
     }
     if(parts[0]==='listings'){
       const listing=state.listings.find(listing=>listing.id===parts[1]);assert.ok(listing);
       if(method==='GET'&&parts.length===2)return {...listing};
-      if(method==='GET'&&parts[2]==='versions')return [{number:'1.0',artifactAvailable:listing.artifactAvailable,current:true}];
+      if(method==='GET'&&parts[2]==='versions')return [{number:listing.versionNumber,artifactAvailable:listing.artifactAvailable,current:true}];
       assert.equal(claims.sub,listing.sellerSub);
       if(method==='POST'&&['upload-policy','artifact-upload-policy'].includes(parts.at(-1))){
-        const artifact=parts[2]==='versions';const key=(artifact?'software/':'listings/')+listing.id+'/'+(artifact?'1.0/':'')+randomUUID();
+        const artifact=parts[2]==='versions';const version=artifact?parts[3]+'/':'';const key=(artifact?'software/':'listings/')+listing.id+'/'+version+randomUUID();
+        if(artifact)assert.equal(parts[3],listing.versionNumber);
         return {url:`https://${targets.aws.bucket}.s3.${targets.aws.region}.amazonaws.com/`,key,algorithm:'AWS4-HMAC-SHA256',credential:'fixture',date:'20261020T000000Z',policy:'fixture',signature:'fixture',securityToken:'fixture'};
       }
       if(method==='POST'&&parts.at(-1)==='confirm'){
@@ -69,7 +71,8 @@ export function createSeedApiFixture(targets,{failureFile}={}) {
     if(method==='GET'&&path==='/notifications'){requiredRole(role,['seller']);return {items:state.notifications};}
     if(method==='GET'&&parts[0]==='search'){
       const listings=state.listings.filter(listing=>listing.categoryId===url.searchParams.get('categoryId'));
-      return {hits:listings.map(listing=>({id:listing.id,coverUrl:listing.photos[0]?'https://media.invalid/'+listing.photos[0]:null})),facets:state.facetsReady&&!failures.readiness?[{attribute:'edition',values:{Standard:1,Expanded:1}}]:[]};
+      assert.equal(url.searchParams.get('size'),'50');assert.equal(url.searchParams.has('q'),false);
+      return {hits:(state.searchReady&&!failures.readiness?listings:[]).map(listing=>({id:listing.id,coverUrl:listing.photos[0]?'https://media.invalid/'+listing.photos[0]:null}))};
     }
     throw Error('Unexpected fixture API request');
   }

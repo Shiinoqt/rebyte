@@ -31,9 +31,13 @@ export type EditTarget =
 
 const ROOT_NAMES: Record<ListingType, string> = { HARDWARE: 'Hardware', SOFTWARE: 'Software' };
 
+export function typeRoot(tree: readonly CategoryTreeNode[], type: ListingType): CategoryTreeNode | undefined {
+  return tree.find((node) => node.name === ROOT_NAMES[type]);
+}
+
 /** Leaf categories under a type root, labelled by their path below the root. */
 export function leavesUnder(tree: readonly CategoryTreeNode[], type: ListingType): LeafOption[] {
-  const root = tree.find((node) => node.name === ROOT_NAMES[type]);
+  const root = typeRoot(tree, type);
   const leaves: LeafOption[] = [];
   const walk = (node: CategoryTreeNode, path: string[]) => {
     for (const child of node.children) {

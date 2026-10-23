@@ -421,6 +421,16 @@ describe('Thread viewport and controls', () => {
     const element = harness.routeNativeElement!.querySelector<HTMLElement>('.history')!;
     return { harness, page, element };
   }
+  it('does not show the new-messages control when the connect refresh loads a thread that is still opening', async () => {
+    TestBed.inject(RealtimeStore).setConnection('connected');
+    const pending = new Subject<MessagePage>(); api.messages.mockReturnValueOnce(pending);
+    const harness = await RouterTestingHarness.create('/conversations/c1');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await harness.fixture.whenStable(); harness.detectChanges();
+    expect(harness.routeNativeElement!.textContent).toContain('Message 3');
+    expect(harness.routeNativeElement!.textContent).not.toContain('New messages');
+    pending.next({ items: [], nextCursor: null }); pending.complete();
+  });
   it('restores scrollTop by the measured height delta after older messages render', async () => {
     api.messages.mockReturnValueOnce(of({ items: [message(3)], nextCursor: '3' }));
     const { harness, page, element } = await thread();

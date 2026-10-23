@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import http from 'node:http';
 import {once} from 'node:events';
+import {randomUUID} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {fixtureTargets} from './fixtures/reset-fixture.mjs';
 import {createSeedApiFixture} from './fixtures/seed-api-fixture.mjs';
@@ -39,18 +40,31 @@ async function httpFixture(t){
   };
   return fixture;
 }
-test('unpaid seed creates distinct roles, media, facets and social/chat projections through HTTP',async t=>{
+test('unpaid seed creates realistic listings, media and social/chat projections through HTTP',async t=>{
   const fixture=await httpFixture(t);const context={targets,tokens,accounts,fetchImpl:fixture.fetchImpl};
   const data=await seedDemo(context);assert.equal(await verifySeed(data,context),true);
   const {state}=fixture;
-  assert.equal(state.listings.length,4);assert.equal(state.uploads.length,6);
-  assert.deepEqual(state.listings.map(listing=>listing.type),['hardware','hardware','software','software']);
-  assert.ok(state.listings.every(listing=>listing.photos.length===1));assert.ok(state.listings.filter(listing=>listing.type==='software').every(listing=>listing.artifactAvailable));
+  assert.equal(state.listings.length,30);assert.equal(state.uploads.length,36);assert.equal(state.categories.filter(category=>category.parentId).length,23);assert.equal(state.attributes.length,0);
+  assert.equal(state.listings.filter(listing=>listing.type==='hardware').length,24);assert.equal(state.listings.filter(listing=>listing.type==='software').length,6);
+  assert.ok(state.listings.every(listing=>listing.photos.length===1&&listing.attributes.length===0));assert.ok(state.listings.filter(listing=>listing.type==='software').every(listing=>listing.artifactAvailable));
+  assert.equal(state.uploads.filter(upload=>upload.type==='image/jpeg').length,28);assert.equal(state.uploads.filter(upload=>upload.type==='image/png').length,2);
+  assert.ok(state.uploads.filter(upload=>upload.type==='image/jpeg').every(upload=>upload.bytes[0]===0xff&&upload.bytes[1]===0xd8));
   assert.equal(state.profiles.developer.isDeveloper,true);assert.equal(state.profiles.seller.isDeveloper,undefined);
   assert.deepEqual(new Set(state.follows),new Set([targets.preservedSubjects.buyer,targets.preservedSubjects.developer]));
   assert.equal(state.conversations[0].messages.length,2);assert.equal(state.favourites.length,1);
+  assert.deepEqual(state.conversations[0].messages.map(message=>message.text),['Hi, is this still available?','Yes, it is. Happy to answer any questions.']);
   assert.equal(state.calls.some(call=>/payments|orders|licen[cs]es|reviews|internal/.test(call.path)),false);
   assert.ok(state.uploads.filter(upload=>upload.type==='image/png').every(upload=>upload.bytes.subarray(1,4).toString()==='PNG'));
+  assert.ok(Object.entries(data.categories).every(([path,id])=>state.categories.some(category=>category.name===path.split('/').at(-1)&&category.id===id)));
+});
+test('seed reuses the catalog default category tree and creates only missing leaves',async t=>{
+  const fixture=await httpFixture(t);const {state}=fixture;const add=(name,parentId)=>{const category={id:randomUUID(),name,parentId};state.categories.push(category);return category;};
+  const hardware=state.categories.find(category=>category.name==='Hardware');
+  const computers=add('Computers',hardware.id);const laptops=add('Laptops',computers.id);add('Peripherals',hardware.id);
+  const context={targets,tokens,accounts,fetchImpl:fixture.fetchImpl};const data=await seedDemo(context);
+  assert.equal(data.categories['Computers/Laptops'],laptops.id);
+  assert.equal(state.categories.filter(category=>category.name==='Peripherals').length,1);assert.equal(state.categories.filter(category=>category.name==='Laptops').length,1);
+  assert.equal(await verifySeed(data,context),true);
 });
 test('seed refuses swapped roles, missing private admin and invalid tokens before HTTP',async()=>{
   let calls=0;const fetchImpl=()=>{calls++;throw Error('unexpected HTTP');};
@@ -78,9 +92,9 @@ test('upload failures never confirm media and foreign bucket/redirect policies f
   await assert.rejects(api.upload({...policy,key:'another/photo'},Buffer.from('x'),'image/png','listings/id/'));assert.equal(uploads,0);
   await assert.rejects(api.upload(policy,Buffer.from('x'),'image/png','listings/id/'));assert.equal(uploads,1);
 });
-test('missing facets and blocked readiness requests expire within a bounded deadline',async t=>{
+test('missing search results and blocked readiness requests expire within a bounded deadline',async t=>{
   const fixture=await httpFixture(t);const context={targets,tokens,accounts,fetchImpl:fixture.fetchImpl};
-  const data=await seedDemo(context);fixture.state.facetsReady=false;
+  const data=await seedDemo(context);fixture.state.searchReady=false;
   await assert.rejects(verifySeed(data,{...context,timeoutMs:80}));
   const before=Date.now();await assert.rejects(verifySeed(data,{...context,timeoutMs:50,fetchImpl:(_url,{signal})=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(signal.reason),{once:true}))}));assert.ok(Date.now()-before<1000);
 });
@@ -103,9 +117,9 @@ test('complete private API seed runs with JWT authorization while visitor and we
     return new Response(result.body,{status:result.status});
   };
   const context={targets,tokens:fixture.tokens,accounts,fetchImpl};
-  const data=await seedDemo(context);assert.equal(await verifySeed(data,context),true);assert.equal(uploads.length,6);
+  const data=await seedDemo(context);assert.equal(await verifySeed(data,context),true);assert.equal(uploads.length,36);
   const state=JSON.parse(fixture.privateRequest('/fixture-state',fixture.tokens.admin).body);
-  assert.equal(state.listings.length,4);assert.equal(state.conversations[0].messages.length,2);
+  assert.equal(state.listings.length,30);assert.equal(state.conversations[0].messages.length,2);
   assert.equal(state.calls.some(call=>/payments|orders|licen[cs]es|reviews|internal/.test(call.path)),false);
   assert.equal((await fixture.publicRequest('/users/me',{token:fixture.tokens.buyer})).status,503);
   assert.equal((await fixture.publicRequest('/payments/webhook',{method:'POST'})).status,503);
