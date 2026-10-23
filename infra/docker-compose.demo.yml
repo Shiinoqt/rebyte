@@ -55,9 +55,13 @@
       "platform": "linux/amd64",
       "restart": "unless-stopped",
       "mem_limit": "256m",
-      "networks": [
-        "backend"
-      ],
+      "networks": {
+        "backend": {
+          "aliases": [
+            "rebyte-redis"
+          ]
+        }
+      },
       "logging": {
         "driver": "json-file",
         "options": {
@@ -299,7 +303,7 @@
         "RABBITMQ_USER": "${RABBITMQ_USER:?Set RABBITMQ_USER}",
         "RABBITMQ_PASSWORD": "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}",
         "MONGO_URI": "${CATALOG_MONGO_URI:?Set CATALOG_MONGO_URI}",
-        "REDIS_HOST": "redis",
+        "REDIS_HOST": "rebyte-redis",
         "SPRING_DATA_REDIS_PASSWORD": "${REDIS_PASSWORD:?Set REDIS_PASSWORD}",
         "MEDIA_BUCKET": "${MEDIA_BUCKET:?Set MEDIA_BUCKET}",
         "MEDIA_REGION": "${AWS_REGION:?Set AWS_REGION}",
@@ -480,7 +484,7 @@
         "RABBITMQ_USER": "${RABBITMQ_USER:?Set RABBITMQ_USER}",
         "RABBITMQ_PASSWORD": "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}",
         "MONGO_URI": "${MESSAGING_MONGO_URI:?Set MESSAGING_MONGO_URI}",
-        "REDIS_HOST": "redis",
+        "REDIS_HOST": "rebyte-redis",
         "SPRING_DATA_REDIS_PASSWORD": "${REDIS_PASSWORD:?Set REDIS_PASSWORD}",
         "MEDIA_BUCKET": "${MEDIA_BUCKET:?Set MEDIA_BUCKET}",
         "MEDIA_REGION": "${AWS_REGION:?Set AWS_REGION}",
@@ -548,7 +552,7 @@
         "AWS_REGION": "${AWS_REGION:?Set AWS_REGION}",
         "COGNITO_USER_POOL_ID": "${COGNITO_USER_POOL_ID:?Set COGNITO_USER_POOL_ID}",
         "EUREKA_URL": "http://discovery-server:8761/eureka/",
-        "REDIS_HOST": "redis",
+        "REDIS_HOST": "rebyte-redis",
         "SPRING_DATA_REDIS_PASSWORD": "${REDIS_PASSWORD:?Set REDIS_PASSWORD}",
         "GATEWAY_PORT": "8080",
         "GATEWAY_CORS_ALLOWED_ORIGINS": "${SPA_ALLOWED_ORIGINS:?Set SPA_ALLOWED_ORIGINS}",
