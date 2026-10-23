@@ -264,7 +264,7 @@ createServer({ key: readFileSync('/fixture/server.key'), cert: readFileSync('/fi
     'public, max-age=31536000, immutable',
     'fingerprinted cache',
   );
-  for (const path of ['/plain.js', '/favicon.ico']) {
+  for (const path of ['/plain.js', '/favicon.svg']) {
     const response = await fetch(base + path);
     check(response.status, 200, `unhashed asset ${path}`);
     check(response.headers.get('cache-control'), 'no-cache', 'unhashed assets not immutable');
