@@ -1,11 +1,28 @@
 import assert from 'node:assert/strict';
 import {setTimeout as delay} from 'node:timers/promises';
 import {readFileSync} from 'node:fs';
+import {extname} from 'node:path';
 import {seedRequest,validateOrigins,PUBLIC_ORIGIN,SEED_ORIGIN} from './reset-targets.mjs';
 
 const roles=['buyer','seller','developer','admin'];
 const uuid='[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}';
-const artifact=Buffer.from('Rebyte demo software sample, version 1.0. No paid licence is included.\n');
+const artifact=Buffer.from('Rebyte demo software sample. No paid licence is included.\n');
+const photoTypes={'.jpg':'image/jpeg','.png':'image/png'};
+function loadListings(){
+  const data=JSON.parse(readFileSync(new URL('./listings.json',import.meta.url),'utf8'));
+  assert.ok(data&&Array.isArray(data.hardware)&&Array.isArray(data.software));
+  assert.equal(data.hardware.length,24);assert.equal(data.software.length,6);
+  assert.equal(Object.keys(data).sort().join(),"hardware,software");
+  assert.equal(new Set(data.hardware.map(item=>item.category)).size,14);assert.equal(new Set(data.software.map(item=>item.category)).size,3);
+  assert.equal(new Set([...data.hardware,...data.software].map(item=>item.key)).size,30);
+  for(const item of data.hardware){assert.deepEqual(Object.keys(item).sort(),['category','condition','credit','description','key','photo','price','shippingCost','shippingLocation','title']);assert.ok(['category','condition','description','key','photo','price','shippingCost','shippingLocation','title'].every(key=>typeof item[key]==='string'&&item[key].length>0));assert.ok(item.credit&&['author','licence','licenceUrl','page'].every(key=>typeof item.credit[key]==='string'));assert.match(item.shippingCost,/^\d+\.\d{2}$/);}
+  for(const item of data.software){assert.deepEqual(Object.keys(item).sort(),['category','description','key','notes','photo','platforms','price','title','versionNumber']);assert.ok(['category','description','key','notes','photo','title','versionNumber'].every(key=>typeof item[key]==='string'&&item[key].length>0));assert.match(item.versionNumber,/^[A-Za-z0-9][A-Za-z0-9.-]*$/);assert.ok(Array.isArray(item.platforms)&&item.platforms.length>0&&item.platforms.every(platform=>typeof platform==='string'&&platform.length>0));}
+  for(const item of [...data.hardware,...data.software]){
+    assert.ok(item.photo.startsWith('listings/')&&!item.photo.includes('\\')&&!item.photo.split('/').includes('..'));
+    assert.ok(photoTypes[extname(item.photo)]);assert.match(item.price,/^\d+\.\d{2}$/);assert.ok(Number(item.price)>0);
+  }
+  return data;
+}
 
 export class SeedApi {
   constructor({targets,tokens,fetchImpl=fetch,signal}) {
@@ -25,14 +42,14 @@ export class SeedApi {
       (role==='admin'&&method==='POST'&&(path==='/categories'||new RegExp(`^/categories/${uuid}/attributes$`).test(path)))||
       (method==='POST'&&((role==='seller'&&path==='/listings/hardware')||(role==='developer'&&path==='/listings/software')))||
       (['seller','developer'].includes(role)&&method==='POST'&&new RegExp(`^/listings/${uuid}/photos/(?:upload-policy|confirm)$`).test(path))||
-      (role==='developer'&&method==='POST'&&new RegExp(`^/listings/${uuid}/versions/1\\.0/(?:artifact-upload-policy|artifact/confirm)$`).test(path))||
+      (role==='developer'&&method==='POST'&&new RegExp(`^/listings/${uuid}/versions/[^/]+/(?:artifact-upload-policy|artifact/confirm)$`).test(path))||
       (role==='buyer'&&method==='PUT'&&new RegExp(`^/favourites/${uuid}$`).test(path))||
       (['buyer','developer'].includes(role)&&method==='PUT'&&new RegExp(`^/users/${uuid}/follow$`).test(path))||
       (role==='buyer'&&method==='POST'&&path==='/conversations')||
       (role==='seller'&&method==='POST'&&new RegExp(`^/conversations/${uuid}/messages$`).test(path));
     assert.ok(roles.includes(role)&&(read||writes)&&!path.includes('%')&&!path.includes('\\'),'Seed route or role refused');
     if(path==='/listings/hardware'||path==='/listings/software'){
-      assert.ok(typeof body?.price==='string'&&/^\d+\.\d{2}$/.test(body.price)&&Number(body.price)>0&&Array.isArray(body.attributes)&&body.attributes.length>0);
+      assert.ok(typeof body?.price==='string'&&/^\d+\.\d{2}$/.test(body.price)&&Number(body.price)>0&&typeof body.categoryId==='string'&&body.categoryId.length>0);assert.deepEqual(body.attributes,[]);assert.deepEqual(body.photos,[]);assert.deepEqual(body.paymentMethods,['PAYPAL']);
       assert.equal('condition' in body,path.endsWith('/hardware'));assert.equal('platforms' in body,path.endsWith('/software'));
     }
     const signal=this.signal?AbortSignal.any([this.signal,AbortSignal.timeout(30000)]):AbortSignal.timeout(30000);
@@ -54,6 +71,7 @@ export class SeedApi {
 
 export async function seedDemo(context) {
   const api=new SeedApi(context);const {accounts,targets}=context;
+  const data=loadListings();
   for(const role of roles){
     assert.match(accounts[role].username,/^[A-Za-z0-9_]{3,30}$/);
     await api.request(role,'GET','/users/me');
@@ -62,27 +80,31 @@ export async function seedDemo(context) {
   await api.request('developer','POST','/users/me/developer-profile');
   const roots=await api.request('admin','GET','/categories');assert.ok(Array.isArray(roots));
   const categories={};const listings=[];
-  for(const type of ['Hardware','Software']){
-    const root=roots.find(root=>root.name===type);assert.ok(root);
-    const category=await api.request('admin','POST','/categories',{name:type==='Hardware'?'Demo hardware':'Demo software',parentId:root.id});
-    const attribute=await api.request('admin','POST',`/categories/${category.id}/attributes`,{name:'edition',type:'ENUM',required:true,allowedValues:['Standard','Expanded'],unit:null});
-    categories[type.toLowerCase()]={id:category.id,attributeId:attribute.id};
-    for(const [index,edition] of ['Standard','Expanded'].entries()){
-      const hardware=type==='Hardware';const role=hardware?'seller':'developer';
-      const body={title:'[demo] '+(hardware?['ThinkPad spare parts','Raspberry Pi starter kit'][index]:['Linux recovery toolkit','Retro serial tools'][index]),description:hardware?'Unpaid demo hardware listing for browsing and sandbox purchases.':'Unpaid demo software listing with a sample version artifact.',price:hardware?(index?'35.00':'18.00'):(index?'7.00':'4.00'),categoryId:category.id,photos:[],paymentMethods:['PAYPAL'],attributes:[{attributeId:attribute.id,value:edition}],...(hardware?{condition:'GOOD',shippingLocation:'Rome, Italy',shippingCost:'3.00'}:{platforms:['LINUX'],versionNumber:'1.0',notes:'Demonstration version',licenceKeyPattern:null})};
+  for(const [type,rootName] of [['hardware','Hardware'],['software','Software']]){
+    const root=roots.find(root=>root.name===rootName);assert.ok(root);
+    // Reuse the catalog's default tree where it exists; a duplicate sibling name is a 409.
+    for(const path of new Set(data[type].map(item=>item.category))){
+      let node=root;
+      for(const name of path.split('/')){
+        node=node.children?.find(child=>child.name===name)??await api.request('admin','POST','/categories',{name,parentId:node.id}).then(created=>{const child={...created,children:[]};(node.children??=[]).push(child);return child;});
+      }
+      assert.ok(!node.children?.length,'Seed category must be a leaf');categories[path]=node.id;
+    }
+    for(const item of data[type]){
+      const hardware=type==='hardware';const role=hardware?'seller':'developer';const categoryId=categories[item.category];
+      const body={title:item.title,description:item.description,price:item.price,categoryId,photos:[],paymentMethods:['PAYPAL'],attributes:[],...(hardware?{condition:item.condition,shippingLocation:item.shippingLocation,shippingCost:item.shippingCost}:{platforms:item.platforms,versionNumber:item.versionNumber,notes:item.notes,licenceKeyPattern:null})};
       const listing=await api.request(role,'POST',hardware?'/listings/hardware':'/listings/software',body);
-      const path=`/listings/${listing.id}/photos`;
-const photo=readFileSync(new URL(`./assets/${type.toLowerCase()}-${edition.toLowerCase()}.png`,import.meta.url));
-      const policy=await api.request(role,'POST',path+'/upload-policy');await api.upload(policy,photo,'image/png',`listings/${listing.id}/`);
+      const path=`/listings/${listing.id}/photos`;const photo=readFileSync(new URL(`./assets/${item.photo}`,import.meta.url));
+      const policy=await api.request(role,'POST',path+'/upload-policy');await api.upload(policy,photo,photoTypes[extname(item.photo)],`listings/${listing.id}/`);
       await api.request(role,'POST',path+'/confirm',{key:policy.key});
-if(!hardware){const version=`/listings/${listing.id}/versions/1.0`;const policy=await api.request(role,'POST',version+'/artifact-upload-policy');await api.upload(policy,artifact,'application/octet-stream',`software/${listing.id}/1.0/`);await api.request(role,'POST',version+'/artifact/confirm',{key:policy.key});}
-      listings.push({id:listing.id,type:type.toLowerCase(),edition});
+      if(!hardware){const version=`/listings/${listing.id}/versions/${item.versionNumber}`;const artifactPolicy=await api.request(role,'POST',version+'/artifact-upload-policy');await api.upload(artifactPolicy,artifact,'application/octet-stream',`software/${listing.id}/${item.versionNumber}/`);await api.request(role,'POST',version+'/artifact/confirm',{key:artifactPolicy.key});}
+      listings.push({id:listing.id,type,categoryId,...(hardware?{}:{versionNumber:item.versionNumber})});
     }
   }
   await api.request('buyer','PUT',`/favourites/${listings[0].id}`);
   for(const role of ['buyer','developer'])await api.request(role,'PUT',`/users/${targets.preservedSubjects.seller}/follow`);
-  const conversation=await api.request('buyer','POST','/conversations',{listingId:listings[0].id,text:'Hello, is this demo item available?',imageKeys:[]});
-  await api.request('seller','POST',`/conversations/${conversation.id}/messages`,{text:'Yes. This is an unpaid demo conversation.',imageKeys:[]});
+  const conversation=await api.request('buyer','POST','/conversations',{listingId:listings[0].id,text:'Hi, is this still available?',imageKeys:[]});
+  await api.request('seller','POST',`/conversations/${conversation.id}/messages`,{text:'Yes, it is. Happy to answer any questions.',imageKeys:[]});
   return {categories,listings,conversationId:conversation.id};
 }
 
@@ -96,12 +118,11 @@ signal.throwIfAborted();
     let ready=true;
     for(const listing of data.listings){
       const detail=await api.request('buyer','GET','/listings/'+listing.id);ready&&=Array.isArray(detail.photos)&&detail.photos.length>0;
-      if(listing.type==='software'){const versions=await api.request('buyer','GET',`/listings/${listing.id}/versions`);ready&&=Array.isArray(versions)&&versions.some(version=>version.number==='1.0'&&version.artifactAvailable===true);}
+      if(listing.type==='software'){const versions=await api.request('buyer','GET',`/listings/${listing.id}/versions`);ready&&=Array.isArray(versions)&&versions.some(version=>version.number===listing.versionNumber&&version.artifactAvailable===true);}
     }
-    for(const category of Object.values(data.categories)){
-      const search=await api.request('buyer','GET',`/search?q=demo&categoryId=${category.id}&size=20`);
-ready&&=Array.isArray(search.hits)&&data.listings.filter(listing=>data.categories[listing.type].id===category.id).every(listing=>search.hits.some(hit=>hit.id===listing.id&&typeof hit.coverUrl==='string'&&hit.coverUrl.length>0));
-      ready&&=Array.isArray(search.facets)&&search.facets.some(facet=>facet.attribute==='edition'&&facet.values?.Standard>=1&&facet.values?.Expanded>=1);
+    for(const categoryId of Object.values(data.categories)){
+      const search=await api.request('buyer','GET',`/search?categoryId=${categoryId}&size=50`);
+      ready&&=Array.isArray(search.hits)&&data.listings.filter(listing=>listing.categoryId===categoryId).every(listing=>search.hits.some(hit=>hit.id===listing.id&&typeof hit.coverUrl==='string'&&hit.coverUrl.length>0));
     }
     const profile=await api.request('buyer','GET','/users/'+context.targets.preservedSubjects.seller);ready&&=profile.followerCount>=2&&profile.followedByMe===true;
     const favourites=await api.request('buyer','GET','/favourites');ready&&=Array.isArray(favourites.favourites)&&favourites.favourites.some(favourite=>favourite.listingId===data.listings[0].id);

@@ -229,7 +229,7 @@ not exist yet. Loading its Compose file cannot succeed until that checkpoint.
 | Automatic deploy / preview deploy | Disabled on both applications, verified after creation |
 | Connect to predefined network | Disabled on both applications |
 | Host port mappings | None for the demo applications |
-| Application scheduled tasks | None; runner and nightly schedule are later plans |
+| Application scheduled tasks | None; runner and weekly schedule are later plans |
 | Host timezone | `Europe/Rome`, set and inspected during plan 09 |
 
 The installed Coolify 4.4.6 normal parser adds declared networks to services and
@@ -356,7 +356,7 @@ container. The prior 400 MiB / 35% suggestion was a hypothesis, not host
 evidence. The real gateway ran under the chosen 512 MiB cap in the private
 tracer. Every backend service has a cap; the checker rejects a combined backend
 budget above 5,632 MiB. Reserve at least 25 GiB free disk for image overlap,
-bounded container logs, database growth and the nightly media lifecycle. Docker
+bounded container logs, database growth and the weekly reset media wipe. Docker
 logs rotate at 10 MiB times three per backend container.
 
 The complete-stack startup, actual traffic, MySQL/indexing/AOF behavior,
@@ -603,10 +603,12 @@ in process environment, with diagnostic output suppressed. Reset uses the
 fixed private gateway origin and the approved SSH forced-command control.
 
 Do not create the scheduled task during packaging. Plan 13 must verify the
-installed Coolify task implementation and server timezone, then prove the
-04:00 Europe/Rome schedule, including daylight-saving behavior. A container
-`TZ` value alone does not establish server scheduling semantics. The first
-actual reset and deployed Spring/Cognito acceptance also remain plan 13 work.
+installed Coolify task implementation and server timezone, then confirm the
+Monday 04:00 Europe/Rome schedule (cron `0 4 * * 1`) from Coolify's computed
+next-run time and the server timezone, including daylight-saving behavior. A
+container `TZ` value alone does not establish server scheduling semantics. The
+first actual reset and deployed Spring/Cognito acceptance also remain plan 13
+work. The first real Monday run is recorded in the plan 13 summary afterwards.
 
 On 2026-10-20 the final amd64 runner passed 14 behavioral gates, including
 356 native signed AWS CLI requests to isolated protocol endpoints, real

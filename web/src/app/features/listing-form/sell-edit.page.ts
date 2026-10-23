@@ -32,7 +32,8 @@ import {
   carryOver,
   rawFromListing,
 } from './attribute-form';
-import { LeafOption, leavesUnder, ListingFormService } from './listing-form.service';
+import { CategoryPicker } from '../home-search/search-filters';
+import { LeafOption, leavesUnder, ListingFormService, typeRoot } from './listing-form.service';
 import { PhotoPicker, PhotoSelection } from './photo-picker';
 import { UploadQueueService } from './upload-queue.service';
 
@@ -45,6 +46,18 @@ const CONDITIONS: readonly { value: Condition; label: string }[] = [
   { value: 'GOOD', label: 'Good' },
   { value: 'ACCEPTABLE', label: 'Acceptable' },
 ];
+// Countries a seller in the demo can ship from: the EU plus nearby non-EU markets.
+const SHIPPING_COUNTRIES = [
+  'IT', 'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'LV',
+  'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'CH', 'NO', 'GB', 'SM', 'VA',
+];
+const REGION_NAMES = new Intl.DisplayNames(['en'], { type: 'region' });
+function countryName(code: string): string {
+  return REGION_NAMES.of(code) ?? code;
+}
+function leafNode(id: string, name: string): CategoryTreeNode {
+  return { id, name, leaf: true, children: [] };
+}
 const PLATFORMS: readonly { value: Platform; label: string }[] = [
   { value: 'WINDOWS', label: 'Windows' },
   { value: 'MACOS', label: 'macOS' },
@@ -78,8 +91,8 @@ const FIELD_ORDER = [
   'listing-condition',
   'listing-description',
   'listing-price',
-  'listing-shipping-location',
   'listing-shipping-cost',
+  'listing-shipping-location',
   'listing-platforms',
   'listing-version',
   'listing-licence-pattern',
@@ -126,6 +139,7 @@ function isValidLicencePattern(value: string): boolean {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     AttributeForm,
+    CategoryPicker,
     Banner,
     BusyButton,
     ErrorState,
@@ -238,24 +252,15 @@ function isValidLicencePattern(value: string): boolean {
             <div class="row">
               <div class="field">
                 <label for="listing-category">Category <span aria-hidden="true">*</span></label>
-                <select
-                  id="listing-category"
-                  [value]="categoryId()"
-                  aria-required="true"
-                  [attr.aria-invalid]="!!errors()['listing-category']"
-                  [attr.aria-describedby]="
-                    errors()['listing-category'] ? 'listing-category-error' : null
-                  "
-                  (change)="pickCategory($event)"
-                  (blur)="validateField('listing-category')"
-                >
-                  <option value="" [selected]="!categoryId()">Select...</option>
-                  @for (leaf of leaves(); track leaf.id) {
-                    <option [value]="leaf.id" [selected]="leaf.id === categoryId()">
-                      {{ leaf.label }}
-                    </option>
-                  }
-                </select>
+                <app-category-picker
+                  triggerId="listing-category"
+                  [leafOnly]="true"
+                  [tree]="categoryTree()"
+                  [selected]="categoryId() || null"
+                  [invalid]="!!errors()['listing-category']"
+                  [describedBy]="errors()['listing-category'] ? 'listing-category-error' : null"
+                  (select)="pickCategory($event ?? '')"
+                />
                 @if (errors()['listing-category']) {
                   <p class="field-error" id="listing-category-error" role="alert">
                     {{ errors()['listing-category'] }}
@@ -265,24 +270,17 @@ function isValidLicencePattern(value: string): boolean {
               @if (mode === 'create' && type() === 'HARDWARE') {
                 <div class="field">
                   <label for="listing-condition">Condition <span aria-hidden="true">*</span></label>
-                  <select
-                    id="listing-condition"
-                    [value]="condition()"
-                    aria-required="true"
-                    [attr.aria-invalid]="!!errors()['listing-condition']"
-                    [attr.aria-describedby]="
-                      errors()['listing-condition'] ? 'listing-condition-error' : null
-                    "
-                    (change)="setCondition($event)"
-                    (blur)="validateField('listing-condition')"
-                  >
-                    <option value="" [selected]="!condition()">Select...</option>
-                    @for (option of conditions; track option.value) {
-                      <option [value]="option.value" [selected]="option.value === condition()">
-                        {{ option.label }}
-                      </option>
-                    }
-                  </select>
+                  <app-category-picker
+                    triggerId="listing-condition"
+                    placeholder="Select a condition"
+                    [leafOnly]="true"
+                    [filterable]="false"
+                    [tree]="conditionOptions"
+                    [selected]="condition() || null"
+                    [invalid]="!!errors()['listing-condition']"
+                    [describedBy]="errors()['listing-condition'] ? 'listing-condition-error' : null"
+                    (select)="setCondition($event)"
+                  />
                   @if (errors()['listing-condition']) {
                     <p class="field-error" id="listing-condition-error" role="alert">
                       {{ errors()['listing-condition'] }}
@@ -305,15 +303,29 @@ function isValidLicencePattern(value: string): boolean {
             />
 
             @if (mode === 'create') {
-              <app-money-input
-                [id]="'listing-price'"
-                label="Price"
-                [required]="true"
-                [value]="price()"
-                [error]="errors()['listing-price'] ?? ''"
-                (valueChange)="price.set($event)"
-                (blurred)="validateField('listing-price')"
-              />
+              <div [class.row]="type() === 'HARDWARE'">
+                <app-money-input
+                  [id]="'listing-price'"
+                  label="Price"
+                  [required]="true"
+                  [value]="price()"
+                  [error]="errors()['listing-price'] ?? ''"
+                  (valueChange)="price.set($event)"
+                  (blurred)="validateField('listing-price')"
+                />
+                @if (type() === 'HARDWARE') {
+                  <app-money-input
+                    [id]="'listing-shipping-cost'"
+                    label="Shipping cost"
+                    hint="Enter 0 for free shipping"
+                    [required]="true"
+                    [value]="shippingCost()"
+                    [error]="errors()['listing-shipping-cost'] ?? ''"
+                    (valueChange)="shippingCost.set($event)"
+                    (blurred)="validateField('listing-shipping-cost')"
+                  />
+                }
+              </div>
             } @else {
               <div class="price-block">
                 <p class="current-price">
@@ -354,24 +366,26 @@ function isValidLicencePattern(value: string): boolean {
 
             @if (mode === 'create' && type() === 'HARDWARE') {
               <div class="row">
+                <div class="field">
+                  <label for="listing-shipping-country">Ships from country <span aria-hidden="true">*</span></label>
+                  <app-category-picker
+                    triggerId="listing-shipping-country"
+                    placeholder="Select a country"
+                    filterLabel="Filter countries"
+                    [leafOnly]="true"
+                    [tree]="countryOptions"
+                    [selected]="shippingCountry()"
+                    (select)="shippingCountry.set($event ?? 'IT')"
+                  />
+                </div>
                 <app-form-field
                   [id]="'listing-shipping-location'"
-                  label="Shipping from"
+                  label="City"
                   [required]="true"
-                  [value]="shippingLocation()"
+                  [value]="shippingCity()"
                   [error]="errors()['listing-shipping-location'] ?? ''"
-                  (valueChange)="shippingLocation.set($event)"
+                  (valueChange)="shippingCity.set($event)"
                   (blurred)="validateField('listing-shipping-location')"
-                />
-                <app-money-input
-                  [id]="'listing-shipping-cost'"
-                  label="Shipping cost"
-                  hint="Enter 0 for free shipping"
-                  [required]="true"
-                  [value]="shippingCost()"
-                  [error]="errors()['listing-shipping-cost'] ?? ''"
-                  (valueChange)="shippingCost.set($event)"
-                  (blurred)="validateField('listing-shipping-cost')"
                 />
               </div>
             }
@@ -649,7 +663,15 @@ export class SellEditPage {
   readonly description = signal('');
   readonly price = signal('');
   readonly condition = signal<Condition | ''>('');
-  readonly shippingLocation = signal('');
+  readonly shippingCity = signal('');
+  readonly shippingCountry = signal('IT');
+  // The catalog stores one free-text location, so the form joins it as "City, Country".
+  readonly shippingLocation = computed(() => {
+    const city = this.shippingCity().trim();
+    return city ? `${city}, ${countryName(this.shippingCountry())}` : '';
+  });
+  readonly conditionOptions = CONDITIONS.map((option) => leafNode(option.value, option.label));
+  readonly countryOptions = SHIPPING_COUNTRIES.map((code) => leafNode(code, countryName(code)));
   readonly shippingCost = signal('');
   readonly platforms = signal<readonly Platform[]>([]);
   readonly versionNumber = signal('');
@@ -699,6 +721,7 @@ export class SellEditPage {
   private originalCategoryId = '';
 
   readonly leaves = computed<LeafOption[]>(() => leavesUnder(this.tree(), this.type()));
+  readonly categoryTree = computed(() => typeRoot(this.tree(), this.type())?.children ?? []);
   readonly typeOptions = computed<SelectionOption[]>(() => [
     { value: 'HARDWARE', label: 'Hardware' },
     {
@@ -780,9 +803,9 @@ export class SellEditPage {
     }
   }
 
-  async pickCategory(event: Event): Promise<void> {
-    const id = (event.target as HTMLSelectElement).value;
+  async pickCategory(id: string): Promise<void> {
     await this.loadSchema(id);
+    this.validateField('listing-category');
   }
 
   async retrySchema(): Promise<void> {
@@ -823,8 +846,9 @@ export class SellEditPage {
     }
   }
 
-  setCondition(event: Event): void {
-    this.condition.set((event.target as HTMLSelectElement).value as Condition | '');
+  setCondition(value: string | null): void {
+    this.condition.set((value ?? '') as Condition | '');
+    this.validateField('listing-condition');
   }
 
   togglePlatform(platform: Platform): void {

@@ -273,12 +273,12 @@ export class MessagesPage {
   private async preservingPosition(command: () => Promise<unknown>): Promise<void> {
     const element = this.history()?.nativeElement; const id = this.store.selectedId();
     const top = element?.scrollTop ?? 0;
-    const nearBottom = !!element && element.scrollHeight - element.clientHeight - top <= 64;
+    const nearBottom = !element || element.scrollHeight - element.clientHeight - top <= 64;
     const latest = this.store.messages().at(-1)?.seq ?? 0;
     const version = this.selectionVersion;
     await command();
     if (this.destroy.destroyed || version !== this.selectionVersion || id !== this.store.selectedId()) return;
-    if ((this.store.messages().at(-1)?.seq ?? 0) > latest && !nearBottom) this.newMessages.set(true);
+    if (latest !== 0 && (this.store.messages().at(-1)?.seq ?? 0) > latest && !nearBottom) this.newMessages.set(true);
     if (nearBottom) this.afterRender((current) => {
       if (Math.abs(current.scrollTop - top) <= 4) current.scrollTop = current.scrollHeight;
     }, id);

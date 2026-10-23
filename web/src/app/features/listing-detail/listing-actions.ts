@@ -359,6 +359,8 @@ export class MessageSellerDialog {
     }
     form {
       display: grid;
+      /* The amount input's intrinsic width (20 display-size mono characters) is wider than the dialog. */
+      grid-template-columns: minmax(0, 1fr);
       gap: var(--space-md);
     }
     .visually-hidden {

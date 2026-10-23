@@ -1,0 +1,499 @@
+{
+  "hardware": [
+    {
+      "key": "thinkpad-t480",
+      "category": "Computers/Laptops",
+      "title": "Lenovo ThinkPad T480, i5-8350U, 16 GB, 512 GB SSD",
+      "price": "289.00",
+      "condition": "VERY_GOOD",
+      "shippingCost": "9.90",
+      "shippingLocation": "Bologna, Italy",
+      "photo": "listings/thinkpad-t480.jpg",
+      "description": "I am selling my Lenovo ThinkPad T480 which is in very good condition. It features a 14 inch FHD IPS screen and an Intel Core i5-8350U processor. The laptop has 16 GB DDR4 memory with one slot free and a 512 GB NVMe SSD. It comes with a clean install of Windows 11 Pro and a backlit keyboard.\n\nThere are some light scuffs on the lid. Both batteries hold about 80 percent charge. I am including the 65 W USB-C charger with the sale.\n\nPhoto: stock image of this model, \"ThinkPad T480 (2) (cropped).jpg\" by Elizabeth K. Joseph, CC BY 2.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:ThinkPad_T480_(2)_(cropped).jpg",
+        "author": "Elizabeth K. Joseph",
+        "licence": "CC BY 2.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by/2.0"
+      }
+    },
+    {
+      "key": "thinkpad-x220",
+      "category": "Computers/Laptops",
+      "title": "Lenovo ThinkPad X220, i5-2520M, 8 GB, 240 GB SSD",
+      "price": "119.00",
+      "condition": "GOOD",
+      "shippingCost": "8.90",
+      "shippingLocation": "Turin, Italy",
+      "photo": "listings/thinkpad-x220.jpg",
+      "description": "I am selling my Lenovo ThinkPad X220 which is in good condition. It features a 12.5 inch 1366x768 screen and is powered by an Intel Core i5-2520M processor with 8 GB DDR3 memory. I have installed a 240 GB SATA SSD and it runs Linux Mint well. It includes the original 65 W charger.\n\nThe laptop has a classic 7-row keyboard and a 6-cell battery that lasts about 3 hours. There is some wear on the palmrest and a small dent near the hinge.\n\nPhoto: stock image of this model, \"ThinkPad X220.jpg\" by Robert Kloosterhuis, CC BY 2.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:ThinkPad_X220.jpg",
+        "author": "Robert Kloosterhuis",
+        "licence": "CC BY 2.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by/2.0"
+      }
+    },
+    {
+      "key": "dell-xps13-2in1",
+      "category": "Computers/Laptops",
+      "title": "Dell XPS 13 2-in-1 (9365), i7, 8 GB, 256 GB",
+      "price": "339.00",
+      "condition": "VERY_GOOD",
+      "shippingCost": "9.90",
+      "shippingLocation": "Milan, Italy",
+      "photo": "listings/dell-xps13-2in1.png",
+      "description": "I am selling my Dell XPS 13 2-in-1 in very good condition. It features a 13.3 inch FHD touchscreen that folds into tablet mode. The laptop runs on an Intel Core i7-7Y75 processor with 8 GB of memory and a 256 GB NVMe SSD. It comes with Windows 11 installed and the battery lasts about 6 hours of light use.\n\nThe device includes a USB-C charger but there is no pen included. There is a tiny mark on the bottom cover. I am shipping this from Milan.\n\nPhoto: stock image of this model, \"Dell XPS 13 (2017).png\" by AnVuong1222004, CC BY-SA 4.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:Dell_XPS_13_(2017).png",
+        "author": "AnVuong1222004",
+        "licence": "CC BY-SA 4.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+      }
+    },
+    {
+      "key": "macbook-air-m1",
+      "category": "Computers/Laptops",
+      "title": "Apple MacBook Air M1 2020, 8 GB, 256 GB, Space Grey",
+      "price": "549.00",
+      "condition": "LIKE_NEW",
+      "shippingCost": "0.00",
+      "shippingLocation": "Rome, Italy",
+      "photo": "listings/macbook-air-m1.jpg",
+      "description": "I am selling my Apple MacBook Air M1 in Space Grey. The laptop features 8 GB unified memory and a 256 GB SSD. It is in like new condition with no scratches on the screen or body. I have always used it with a protective sleeve to keep it safe.\n\nThe battery health is at 94 percent with 182 cycles. I have erased the device and signed out of iCloud. It comes with the original box and a 30 W charger. It is being shipped from Rome, Italy.\n\nPhoto: stock image of this model, \"MacBook M1.jpg\" by Wilfredor, CC0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:MacBook_M1.jpg",
+        "author": "Wilfredor",
+        "licence": "CC0",
+        "licenceUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+      }
+    },
+    {
+      "key": "rtx-3060",
+      "category": "Components/Graphics cards",
+      "title": "Zotac GeForce RTX 3060 12 GB, blower",
+      "price": "219.00",
+      "condition": "VERY_GOOD",
+      "shippingCost": "7.90",
+      "shippingLocation": "Padua, Italy",
+      "photo": "listings/rtx-3060.jpg",
+      "description": "I am selling my Zotac GeForce RTX 3060 with 12 GB GDDR6 memory. It features a blower-style cooler that exhausts out of the case and requires one 8-pin power connector. I used this card in a home office PC for 18 months. It has never been used for mining and I repasted it last month.\n\nThe card is in very good condition and comes with the original box. Please note that there is no remaining warranty on the item. I am shipping this from Padua, Italy.\n\nPhoto: stock image of this model, \"Zotac GeForce RTX 3060 12GB VRAM LHR video card.jpg\" by Qurren, CC BY-SA 4.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:Zotac_GeForce_RTX_3060_12GB_VRAM_LHR_video_card.jpg",
+        "author": "Qurren",
+        "licence": "CC BY-SA 4.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+      }
+    },
+    {
+      "key": "rx-580-nitro",
+      "category": "Components/Graphics cards",
+      "title": "Sapphire Nitro+ Radeon RX 580 8 GB",
+      "price": "79.00",
+      "condition": "GOOD",
+      "shippingCost": "7.90",
+      "shippingLocation": "Naples, Italy",
+      "photo": "listings/rx-580-nitro.jpg",
+      "description": "I am selling my Sapphire Nitro+ Radeon RX 580 with 8 GB GDDR5. It is in good condition and features a dual fan design with a backplate. It plays 1080p esports titles well. The fans are clean and quiet, though one fan blade has a small chip that does not affect cooling.\n\nI do not have the original box for this card. It will be shipped in an antistatic bag from Naples, Italy. Please note these specific details regarding the physical condition and the packaging.\n\nPhoto: stock image of this model, \"Sapphire RX 580 Nitro+.jpg\" by Verte95, CC BY-SA 4.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:Sapphire_RX_580_Nitro%2B.jpg",
+        "author": "Verte95",
+        "licence": "CC BY-SA 4.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+      }
+    },
+    {
+      "key": "ryzen-5-3600",
+      "category": "Components/CPUs",
+      "title": "AMD Ryzen 5 3600, AM4, 6 cores",
+      "price": "59.00",
+      "condition": "VERY_GOOD",
+      "shippingCost": "5.90",
+      "shippingLocation": "Florence, Italy",
+      "photo": "listings/ryzen-5-3600.jpg",
+      "description": "I am selling my AMD Ryzen 5 3600 processor which features 6 cores and 12 threads. It is an AM4 socket chip that I removed from a working build after a recent upgrade. The CPU is in very good condition and has never been overclocked during its time in my system.\n\nI have already cleaned it of all old thermal paste and ensured that all pins are straight. Please note that there is no stock cooler included with this item.\n\nPhoto: stock image of this model, \"AMD@7nm(12nmIO)@Zen2@Matisse@Ryzen 5 3600@100-000000031 BF 1923SUT 9HM6935R90062 DSCx1.jpg\" by Fritzchens Fritz, CC0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:AMD@7nm(12nmIO)@Zen2@Matisse@Ryzen_5_3600@100-000000031_BF_1923SUT_9HM6935R90062_DSCx1.jpg",
+        "author": "Fritzchens Fritz",
+        "licence": "CC0",
+        "licenceUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+      }
+    },
+    {
+      "key": "ryzen-7-5800x",
+      "category": "Components/CPUs",
+      "title": "AMD Ryzen 7 5800X, AM4, 8 cores",
+      "price": "139.00",
+      "condition": "LIKE_NEW",
+      "shippingCost": "5.90",
+      "shippingLocation": "Verona, Italy",
+      "photo": "listings/ryzen-7-5800x.jpg",
+      "description": "I am selling my AMD Ryzen 7 5800X processor which is in like new condition. I used it for six months with a 240 mm AIO cooler and kept it on stock settings throughout. I have personally checked the pins under a light to ensure everything is perfect.\n\nThe item is being shipped from Verona, Italy. It will be sent in a clamshell case inside the original box for protection. This CPU features 8 cores and 16 threads on the AM4 socket.\n\nPhoto: stock image of this model, \"AMD Ryzen 7 5800X 19339.jpg\" by Michael Wolf (Webseite), CC BY-SA 3.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:AMD_Ryzen_7_5800X_19339.jpg",
+        "author": "Michael Wolf (Webseite)",
+        "licence": "CC BY-SA 3.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0"
+      }
+    },
+    {
+      "key": "core-i7-box",
+      "category": "Components/CPUs",
+      "title": "Intel Core i7-4790K, LGA1150, boxed",
+      "price": "69.00",
+      "condition": "GOOD",
+      "shippingCost": "5.90",
+      "shippingLocation": "Genoa, Italy",
+      "photo": "listings/core-i7-box.jpg",
+      "description": "I am selling my Intel Core i7-4790K processor. It is an unlocked chip with 4 cores and 8 threads. I used this in a Z97 build where it ran at stock speeds. It is in good condition and comes in the original retail box.\n\nPlease note that there is no cooler included with this item. I am shipping this from Genoa, Italy.\n\nPhoto: stock image of this model, \"4th Generation Intel® Core™ i7 Processor Unlocked Box.jpg\" by Intel in Deutschland, CC BY-SA 2.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:4th_Generation_Intel%C2%AE_Core%E2%84%A2_i7_Processor_Unlocked_Box.jpg",
+        "author": "Intel in Deutschland",
+        "licence": "CC BY-SA 2.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/2.0"
+      }
+    },
+    {
+      "key": "lg-ultrafine-5k",
+      "category": "Peripherals/Monitors",
+      "title": "LG UltraFine 5K 27 inch, Thunderbolt 3",
+      "price": "449.00",
+      "condition": "VERY_GOOD",
+      "shippingCost": "19.90",
+      "shippingLocation": "Milan, Italy",
+      "photo": "listings/lg-ultrafine-5k.jpg",
+      "description": "I am selling my LG UltraFine 5K 27 inch monitor which is in very good condition. It features a 5120x2880 resolution with P3 colour. The screen has no dead pixels and includes a height-adjustable stand. It comes with a built-in camera and speakers for a complete setup.\n\nThis monitor connects via a single Thunderbolt 3 cable to a Mac, providing 94 W charging. I am shipping from Milan, Italy, but local pickup is also possible.\n\nPhoto: stock image of this model, \"LG UltraFine 5K Display.jpg\" by LG Electronics, CC BY 2.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:LG_UltraFine_5K_Display.jpg",
+        "author": "LG Electronics",
+        "licence": "CC BY 2.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by/2.0"
+      }
+    },
+    {
+      "key": "kingston-sodimm",
+      "category": "Components/Memory",
+      "title": "Kingston ValueRAM 32 GB (2x16) DDR4-2400 SO-DIMM",
+      "price": "49.00",
+      "condition": "LIKE_NEW",
+      "shippingCost": "3.90",
+      "shippingLocation": "Bari, Italy",
+      "photo": "listings/kingston-sodimm.jpg",
+      "description": "I am selling a set of 2 x 16 GB DDR4-2400 SO-DIMM memory modules. These are Kingston ValueRAM KVR24S17D8/16 sticks suitable for laptops and mini PCs. They are in like new condition as they were only pulled from a NUC after two weeks of use.\n\nI have tested the memory with MemTest86 and it showed zero errors. The modules are still in the original blister packs. I am shipping these from Bari, Italy.\n\nPhoto: stock image of this model, \"KVR24S17D8-16 package boxes 20170724.jpg\" by Kenming Wang, CC BY-SA 2.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:KVR24S17D8-16_package_boxes_20170724.jpg",
+        "author": "Kenming Wang",
+        "licence": "CC BY-SA 2.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/2.0"
+      }
+    },
+    {
+      "key": "samsung-970-evo-plus",
+      "category": "Components/Storage",
+      "title": "Samsung 970 EVO Plus 250 GB NVMe M.2",
+      "price": "24.00",
+      "condition": "VERY_GOOD",
+      "shippingCost": "3.90",
+      "shippingLocation": "Trieste, Italy",
+      "photo": "listings/samsung-970-evo-plus.jpg",
+      "description": "I am selling my Samsung 970 EVO Plus 250 GB NVMe M.2 2280. The drive is in very good condition and shows ninety eight percent health in Samsung Magician. It has about 9 TB written and has been securely erased.\n\nThis unit is good as a boot drive for your computer. I am shipping the item from Trieste, Italy.\n\nPhoto: stock image of this model, \"2023 Napęd Samsung 970 EVO Plus 250GB (1).jpg\" by Jacek Halicki, CC BY-SA 4.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:2023_Nap%C4%99d_Samsung_970_EVO_Plus_250GB_(1).jpg",
+        "author": "Jacek Halicki",
+        "licence": "CC BY-SA 4.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+      }
+    },
+    {
+      "key": "crucial-mx500",
+      "category": "Components/Storage",
+      "title": "Crucial MX500 1 TB 2.5 inch SATA SSD",
+      "price": "45.00",
+      "condition": "VERY_GOOD",
+      "shippingCost": "3.90",
+      "shippingLocation": "Parma, Italy",
+      "photo": "listings/crucial-mx500.jpg",
+      "description": "I am selling my Crucial MX500 1 TB SATA 2.5 inch SSD. It is in very good condition and has a health status of 97 percent. I have used it for about 14 TB of written data, but I have securely erased the drive before listing it.\n\nThe label is still intact on the casing. This drive is ideal for reviving an older laptop that needs a speed boost. I am shipping this item from Parma, Italy.\n\nPhoto: stock image of this model, \"CT1000MX500SSD1 rear 20210220.jpg\" by Solomon203, CC BY-SA 4.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:CT1000MX500SSD1_rear_20210220.jpg",
+        "author": "Solomon203",
+        "licence": "CC BY-SA 4.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+      }
+    },
+    {
+      "key": "mx-master-3s",
+      "category": "Peripherals/Mice",
+      "title": "Logitech MX Master 3S, graphite",
+      "price": "59.00",
+      "condition": "LIKE_NEW",
+      "shippingCost": "4.90",
+      "shippingLocation": "Rome, Italy",
+      "photo": "listings/mx-master-3s.jpg",
+      "description": "I am selling my Logitech MX Master 3S in graphite. It is in like new condition and I have taken great care of it. There is no shine on the thumb rest and the device functions perfectly. It features quiet clicks and an 8000 DPI sensor for precise movement.\n\nThe battery lasts weeks on a single charge. I am including the USB-C cable, the Bluetooth connection, and the Logi Bolt receiver. The item is being sent from Rome, Italy.\n\nPhoto: stock image of this model, \"Logitech MX Master 3S HS11.jpg\" by Hayden Schiff, CC BY 4.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:Logitech_MX_Master_3S_HS11.jpg",
+        "author": "Hayden Schiff",
+        "licence": "CC BY 4.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by/4.0"
+      }
+    },
+    {
+      "key": "keychron-k8",
+      "category": "Peripherals/Keyboards",
+      "title": "Keychron K8 wireless mechanical keyboard, TKL",
+      "price": "55.00",
+      "condition": "VERY_GOOD",
+      "shippingCost": "6.90",
+      "shippingLocation": "Bergamo, Italy",
+      "photo": "listings/keychron-k8.jpg",
+      "description": "I am selling my Keychron K8 wireless mechanical keyboard. It is a tenkeyless model with a US ANSI layout and Gateron Brown switches. This is the version without a backlight. All keys work perfectly and the condition is very good.\n\nThe keyboard features Bluetooth connectivity for up to three devices plus a USB-C wired option. I have included both Mac and Windows keycaps with the sale. I am shipping this item from Bergamo, Italy.\n\nPhoto: stock image of this model, \"Keychron K8 Non-Backlight Wireless Mechanical Keyboard - 52772912798.jpg\" by Triple-green, CC BY 2.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:Keychron_K8_Non-Backlight_Wireless_Mechanical_Keyboard_-_52772912798.jpg",
+        "author": "Triple-green",
+        "licence": "CC BY 2.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by/2.0"
+      }
+    },
+    {
+      "key": "ibm-model-m",
+      "category": "Peripherals/Keyboards",
+      "title": "IBM Model M buckling-spring keyboard, Spanish layout",
+      "price": "95.00",
+      "condition": "GOOD",
+      "shippingCost": "9.90",
+      "shippingLocation": "Cagliari, Italy",
+      "photo": "listings/ibm-model-m.jpg",
+      "description": "I am selling my classic buckling spring keyboard with a Spanish ISO layout. It is in good condition and has been deep cleaned for use. I have tested every key to ensure they function correctly.\n\nThe keyboard comes with a PS/2 cable and a USB adapter. There is some yellowing on the case which is expected for its age. I am shipping this item from Cagliari, Italy.\n\nPhoto: stock image of this model, \"IBM Model M Spanish layout Keyboard.jpg\" by Wilfredor, CC0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:IBM_Model_M_Spanish_layout_Keyboard.jpg",
+        "author": "Wilfredor",
+        "licence": "CC0",
+        "licenceUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+      }
+    },
+    {
+      "key": "raspberry-pi-4",
+      "category": "Computers/Single-board computers",
+      "title": "Raspberry Pi 4 Model B 4 GB",
+      "price": "39.00",
+      "condition": "VERY_GOOD",
+      "shippingCost": "3.90",
+      "shippingLocation": "Modena, Italy",
+      "photo": "listings/raspberry-pi-4.jpg",
+      "description": "I am selling my Raspberry Pi 4 Model B with 4 GB RAM. The board is in very good condition and has been used for a year running Home Assistant. Please note that this is the board only, so it does not come with a case or a power supply.\n\nI have included a 32 GB microSD card which has Raspberry Pi OS installed on it. The item will be shipped from Modena, Italy. It is ready for someone to set up their own projects.\n\nPhoto: stock image of this model, \"Raspberry Pi 4 Model B - Top.jpg\" by Laserlicht, CC BY-SA 4.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:Raspberry_Pi_4_Model_B_-_Top.jpg",
+        "author": "Laserlicht",
+        "licence": "CC BY-SA 4.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+      }
+    },
+    {
+      "key": "raspberry-pi-400",
+      "category": "Computers/Single-board computers",
+      "title": "Raspberry Pi 400 kit with mouse",
+      "price": "59.00",
+      "condition": "LIKE_NEW",
+      "shippingCost": "6.90",
+      "shippingLocation": "Pisa, Italy",
+      "photo": "listings/raspberry-pi-400.jpg",
+      "description": "I am selling my Raspberry Pi 400 kit which is in like new condition. The Raspberry Pi is built into a compact keyboard with a UK layout. I used it a few times for coding lessons and it works perfectly.\n\nThe kit includes an official mouse, a micro-HDMI cable, and a USB-C power supply. I am shipping this from Pisa, Italy.\n\nPhoto: stock image of this model, \"Raspberry Pi 400.jpg\" by SimonWaldherr, CC BY-SA 4.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:Raspberry_Pi_400.jpg",
+        "author": "SimonWaldherr",
+        "licence": "CC BY-SA 4.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+      }
+    },
+    {
+      "key": "nintendo-switch",
+      "category": "Gaming/Consoles and handhelds",
+      "title": "Nintendo Switch with dock and neon Joy-Con",
+      "price": "169.00",
+      "condition": "GOOD",
+      "shippingCost": "9.90",
+      "shippingLocation": "Palermo, Italy",
+      "photo": "listings/nintendo-switch.jpg",
+      "description": "I am selling my standard Nintendo Switch which comes with the dock and the neon red and blue Joy-Con and grip. The console has had a screen protector on it since day one. It includes the HDMI cable and the charger.\n\nPlease note that there is a light Joy-Con drift on the left stick. I am shipping this from Palermo, Italy.\n\nPhoto: stock image of this model, \"Nintendo-Switch-Console-Docked-wJoyConRB.jpg\" by Evan-Amos, Public domain, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:Nintendo-Switch-Console-Docked-wJoyConRB.jpg",
+        "author": "Evan-Amos",
+        "licence": "Public domain",
+        "licenceUrl": ""
+      }
+    },
+    {
+      "key": "steam-deck",
+      "category": "Gaming/Consoles and handhelds",
+      "title": "Valve Steam Deck 256 GB",
+      "price": "279.00",
+      "condition": "VERY_GOOD",
+      "shippingCost": "12.90",
+      "shippingLocation": "Bologna, Italy",
+      "photo": "listings/steam-deck.png",
+      "description": "I am selling my Valve Steam Deck with 256 GB of NVMe storage. The device is in very good condition and I have already performed a factory reset and signed out of my account.\n\nI have applied a matte screen protector to the display to keep it safe. The sale includes the original charger and a carrying case. The item will be shipped from Bologna, Italy.\n\nPhoto: stock image of this model, \"Steam Deck (front).png\" by Liam Dawe/GamingOnLinux, PNG version by VulcanSphere, CC BY-SA 4.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:Steam_Deck_(front).png",
+        "author": "Liam Dawe/GamingOnLinux, PNG version by VulcanSphere",
+        "licence": "CC BY-SA 4.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+      }
+    },
+    {
+      "key": "synology-ds223j",
+      "category": "Networking/NAS",
+      "title": "Synology DiskStation DS223j 2-bay NAS (diskless)",
+      "price": "139.00",
+      "condition": "LIKE_NEW",
+      "shippingCost": "9.90",
+      "shippingLocation": "Venice, Italy",
+      "photo": "listings/synology-ds223j.jpg",
+      "description": "I am selling my Synology DiskStation DS223j which is a 2-bay NAS. The unit is in like new condition and is being sold without drives.\n\nThe device is very quiet during operation. I am including the original box, the power adapter, and a LAN cable with the sale. This item will be shipped from Venice, Italy.\n\nPhoto: stock image of this model, \"Synology Disk Station DS223J - NAS-Server.jpg\" by DYVER, CC BY-SA 4.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:Synology_Disk_Station_DS223J_-_NAS-Server.jpg",
+        "author": "DYVER",
+        "licence": "CC BY-SA 4.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+      }
+    },
+    {
+      "key": "uno-compatible",
+      "category": "Electronics/Microcontrollers",
+      "title": "Arduino Uno compatible board (CH340), 3 pack",
+      "price": "12.00",
+      "condition": "LIKE_NEW",
+      "shippingCost": "3.90",
+      "shippingLocation": "Turin, Italy",
+      "photo": "listings/uno-compatible.jpg",
+      "description": "I am selling a pack of three ATmega328P boards with CH340 USB chips. These are not official Arduino boards but they are fully compatible with the Arduino IDE. I have tested every single one of them using the Blink sketch to ensure they work correctly.\n\nThe set includes a USB cable. One of the boards was used once on a breadboard but they are all in like new condition. I am shipping these from Turin, Italy. They are ready for your next electronics project.\n\nPhoto: stock image of this model, \"Arduino Uno board.jpg\" by JrawX, CC0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:Arduino_Uno_board.jpg",
+        "author": "JrawX",
+        "licence": "CC0",
+        "licenceUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+      }
+    },
+    {
+      "key": "logitech-webcam",
+      "category": "Peripherals/Webcams",
+      "title": "Logitech 1080p HD webcam with stereo mic",
+      "price": "29.00",
+      "condition": "VERY_GOOD",
+      "shippingCost": "4.90",
+      "shippingLocation": "Milan, Italy",
+      "photo": "listings/logitech-webcam.jpg",
+      "description": "I am selling my Logitech webcam which is in very good condition. I used it for video calls and it works perfectly. It features 1080p video and autofocus to ensure clear images. It also has built-in stereo microphones for high quality audio.\n\nThe clip fits both laptops and monitors for easy setup. It is a plug and play device that works on Windows, macOS, and Linux. I am shipping this item from Milan, Italy.\n\nPhoto: stock image of this model, \"Webcam 01.jpg\" by Pmwiki1, CC0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:Webcam_01.jpg",
+        "author": "Pmwiki1",
+        "licence": "CC0",
+        "licenceUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+      }
+    },
+    {
+      "key": "airpods-pro-2",
+      "category": "Peripherals/Audio",
+      "title": "Apple AirPods Pro (2nd generation)",
+      "price": "129.00",
+      "condition": "VERY_GOOD",
+      "shippingCost": "4.90",
+      "shippingLocation": "Rome, Italy",
+      "photo": "listings/airpods-pro-2.jpg",
+      "description": "I am selling my Apple AirPods Pro second generation. The active noise cancellation and transparency mode work perfectly. The battery health is good and I have included new ear tips in all three sizes.\n\nThe charging case has some light scratches from normal use. These are being shipped from Rome, Italy.\n\nPhoto: stock image of this model, \"AirPods Pro (2nd generation).jpg\" by Hajoon0102, CC BY-SA 4.0, via Wikimedia Commons.",
+      "credit": {
+        "page": "https://commons.wikimedia.org/wiki/File:AirPods_Pro_(2nd_generation).jpg",
+        "author": "Hajoon0102",
+        "licence": "CC BY-SA 4.0",
+        "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+      }
+    }
+  ],
+  "software": [
+    {
+      "key": "driftwood-notes",
+      "category": "Productivity",
+      "title": "Driftwood Notes, offline Markdown notebook",
+      "price": "9.00",
+      "platforms": [
+        "WINDOWS",
+        "MACOS",
+        "LINUX"
+      ],
+      "versionNumber": "2.3.0",
+      "notes": "Adds tag folders and faster full-text search.",
+      "description": "Driftwood Notes keeps your notes as plain Markdown files in a folder you choose, so they stay readable without the app and sync with any tool you already use.\n\nIt has instant full-text search, tags, backlinks and a distraction-free writing mode. Everything works offline and nothing leaves your machine.\n\nCover image: original artwork made for this demo.",
+      "photo": "listings/driftwood-notes.jpg"
+    },
+    {
+      "key": "portpilot",
+      "category": "Development tools",
+      "title": "PortPilot, serial terminal for microcontrollers",
+      "price": "6.00",
+      "platforms": [
+        "WINDOWS",
+        "LINUX"
+      ],
+      "versionNumber": "1.4.2",
+      "notes": "Remembers baud rate per device and adds hex view.",
+      "description": "PortPilot is a small serial terminal for Arduino, ESP32 and Raspberry Pi Pico boards. It detects boards when they are plugged in, remembers the baud rate for each device and keeps a searchable session log.\n\nYou can send saved command snippets with one click and switch between text and hex view while you debug.\n\nCover image: original artwork made for this demo.",
+      "photo": "listings/portpilot.jpg"
+    },
+    {
+      "key": "shelfscan",
+      "category": "Productivity",
+      "title": "ShelfScan, barcode inventory for small shops",
+      "price": "14.00",
+      "platforms": [
+        "ANDROID",
+        "WEB"
+      ],
+      "versionNumber": "3.0.1",
+      "notes": "CSV export now includes supplier and location.",
+      "description": "ShelfScan turns a phone camera into a barcode scanner for stock counts. Scan an item, adjust the quantity and the web dashboard updates straight away.\n\nIt supports low-stock alerts, several storage locations and CSV import and export for your accounting tool. Built for small shops and repair benches, not warehouses.\n\nCover image: original artwork made for this demo.",
+      "photo": "listings/shelfscan.jpg"
+    },
+    {
+      "key": "tidybyte",
+      "category": "Utilities",
+      "title": "Tidybyte, duplicate photo finder",
+      "price": "5.00",
+      "platforms": [
+        "WINDOWS",
+        "MACOS"
+      ],
+      "versionNumber": "1.9.0",
+      "notes": "Detects resized and re-saved copies.",
+      "description": "Tidybyte scans your photo folders and groups exact duplicates and near-duplicates, including resized or re-saved copies.\n\nYou review each group side by side before anything moves, and removed files go to the system bin so nothing is lost by mistake. A 50,000 photo library scans in a few minutes on a recent laptop.\n\nCover image: original artwork made for this demo.",
+      "photo": "listings/tidybyte.jpg"
+    },
+    {
+      "key": "lumen-monitor",
+      "category": "Utilities",
+      "title": "Lumen Monitor, menu bar system monitor",
+      "price": "4.00",
+      "platforms": [
+        "MACOS"
+      ],
+      "versionNumber": "2.1.0",
+      "notes": "Adds battery health and fan speed readouts.",
+      "description": "Lumen Monitor shows CPU, memory, network and disk activity as small graphs in the macOS menu bar. Click it for a detailed view with the processes using the most resources.\n\nIt is lightweight, supports Apple silicon natively and lets you choose which graphs to show.\n\nCover image: original artwork made for this demo.",
+      "photo": "listings/lumen-monitor.jpg"
+    },
+    {
+      "key": "kiln-ssg",
+      "category": "Development tools",
+      "title": "Kiln, static site generator with live preview",
+      "price": "8.00",
+      "platforms": [
+        "WINDOWS",
+        "MACOS",
+        "LINUX"
+      ],
+      "versionNumber": "0.12.0",
+      "notes": "Incremental rebuilds and image resizing.",
+      "description": "Kiln builds fast static websites from Markdown and simple HTML templates. The live preview reloads the page as you save, and incremental rebuilds keep large sites quick.\n\nIt resizes images, generates an RSS feed and a sitemap, and outputs plain files you can host anywhere.\n\nCover image: original artwork made for this demo.",
+      "photo": "listings/kiln-ssg.jpg"
+    }
+  ]
+}

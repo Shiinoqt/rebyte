@@ -716,6 +716,7 @@ export class PriceControl {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.inline]': 'inline()',
+    '[class.field]': 'leafOnly()',
     '(document:click)': 'outside($event)',
     '(keydown)': 'keydown($event)',
   },
@@ -764,6 +765,46 @@ export class PriceControl {
     .trigger:disabled {
       color: var(--text-muted);
       cursor: not-allowed;
+    }
+    :host(.field) {
+      display: block;
+    }
+    :host(.field) .trigger {
+      min-height: var(--control-md);
+      border: 1px solid var(--border-control);
+      border-radius: var(--radius-md);
+      font-weight: var(--weight-regular);
+    }
+    :host(.field) .trigger[aria-invalid='true'] {
+      border-color: var(--danger);
+      background: var(--danger-soft);
+    }
+    :host(.field) .trigger .placeholder {
+      color: var(--text-muted);
+    }
+    :host(.field) .popover {
+      right: 0;
+    }
+    .filter {
+      flex: none;
+      width: 100%;
+      min-height: var(--control-md);
+      margin-bottom: var(--space-xs);
+      padding: var(--space-sm) var(--space-md);
+      border: 1px solid var(--border-control);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+    }
+    .path {
+      color: var(--text-muted);
+      font-size: var(--text-caption);
+    }
+    .no-match {
+      margin: 0;
+      padding: var(--space-sm) var(--space-md);
+      color: var(--text-muted);
     }
     .trigger span {
       flex: 1;
@@ -853,12 +894,15 @@ export class PriceControl {
         #trigger
         type="button"
         class="trigger"
+        [attr.id]="triggerId()"
         [disabled]="disabled()"
         aria-haspopup="true"
         [attr.aria-expanded]="open() && !disabled()"
+        [attr.aria-invalid]="invalid() ? 'true' : null"
+        [attr.aria-describedby]="describedBy()"
         (click)="toggle()"
       >
-        <span>{{ label() }}</span>
+        <span [class.placeholder]="leafOnly() && !selected()">{{ label() }}</span>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="chevronDown" /></svg>
       </button>
     }
@@ -867,6 +911,40 @@ export class PriceControl {
     }
     @if ((inline() && !disabled()) || (!inline() && open() && !disabled())) {
       <div class="panel" role="group" aria-label="Categories" [class.popover]="!inline()">
+        @if (leafOnly() && filterable()) {
+          <input
+            #filter
+            class="filter"
+            type="search"
+            [placeholder]="filterLabel()"
+            [attr.aria-label]="filterLabel()"
+            autocomplete="off"
+            [value]="query()"
+            (input)="query.set($any($event.target).value)"
+          />
+        }
+        @if (matches(); as found) {
+          <ul>
+            @for (match of found; track match.node.id) {
+              <li>
+                <button
+                  type="button"
+                  data-row
+                  [class.selected]="selected() === match.node.id"
+                  [attr.aria-current]="selected() === match.node.id ? 'true' : null"
+                  (click)="choose(match.node.id)"
+                >
+                  <span class="category-name">
+                    {{ match.node.name }}
+                    @if (match.path) { <span class="path">· {{ match.path }}</span> }
+                  </span>
+                </button>
+              </li>
+            } @empty {
+              <li><p class="no-match">No matches for "{{ query().trim() }}".</p></li>
+            }
+          </ul>
+        } @else {
         @if (!flattened() && trail().length) {
           <nav class="crumbs" aria-label="Category path">
             <button type="button" (click)="goTo(0)">All categories</button>
@@ -877,7 +955,7 @@ export class PriceControl {
           </nav>
         }
         <ul>
-          @if (!flattened() && current(); as parent) {
+          @if (!leafOnly() && !flattened() && current(); as parent) {
             <li>
               <button
                 type="button"
@@ -894,7 +972,7 @@ export class PriceControl {
                 }
               </button>
             </li>
-          } @else {
+          } @else if (!leafOnly()) {
             <li>
               <button
                 type="button"
@@ -935,6 +1013,7 @@ export class PriceControl {
             </li>
           }
         </ul>
+        }
       </div>
     }
   `,
@@ -945,6 +1024,14 @@ export class CategoryPicker {
   readonly inline = input(false);
   readonly flattened = input(false);
   readonly disabled = input(false);
+  /** Form mode: only leaves are selectable, the trigger shows the full path and the panel has a filter box. */
+  readonly leafOnly = input(false);
+  readonly placeholder = input('Select a category');
+  readonly filterable = input(true);
+  readonly filterLabel = input('Filter categories');
+  readonly triggerId = input<string | null>(null);
+  readonly invalid = input(false);
+  readonly describedBy = input<string | null>(null);
   readonly select = output<string | null>();
 
   protected readonly chevronDown = CHEVRON_DOWN;
@@ -966,14 +1053,38 @@ export class CategoryPicker {
     visit(this.tree(), 0);
     return result;
   });
-  protected readonly label = computed(() =>
-    this.disabled()
-      ? 'Choose a type first'
-      : (this.find(this.tree(), this.selected())?.name ?? 'All categories'),
-  );
+  protected readonly label = computed(() => {
+    if (this.disabled()) return 'Choose a type first';
+    if (this.leafOnly()) {
+      const leaf = this.find(this.tree(), this.selected());
+      if (!leaf) return this.placeholder();
+      return [...selectedTrail(this.tree(), leaf.id), leaf].map((node) => node.name).join(' › ');
+    }
+    return this.find(this.tree(), this.selected())?.name ?? 'All categories';
+  });
+  protected readonly query = signal('');
+  /** Leaves whose name or ancestor path contains every typed word; null while the filter is empty. */
+  protected readonly matches = computed(() => {
+    const words = this.query().trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!this.leafOnly() || !words.length) return null;
+    const found: { node: CategoryTreeNode; path: string }[] = [];
+    const visit = (nodes: readonly CategoryTreeNode[], ancestors: string[]) => {
+      for (const node of nodes) {
+        if (node.children.length) {
+          visit(node.children, [...ancestors, node.name]);
+          continue;
+        }
+        const text = [...ancestors, node.name].join(' ').toLowerCase();
+        if (words.every((word) => text.includes(word))) found.push({ node, path: ancestors.join(' › ') });
+      }
+    };
+    visit(this.tree(), []);
+    return found;
+  });
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   private readonly trigger = viewChild<ElementRef<HTMLButtonElement>>('trigger');
+  private readonly filter = viewChild<ElementRef<HTMLInputElement>>('filter');
 
   constructor() {
     effect(() => {
@@ -988,8 +1099,13 @@ export class CategoryPicker {
       return;
     }
     this.trail.set(selectedTrail(this.tree(), this.selected()));
+    this.query.set('');
     this.open.set(true);
-    this.focusFirstRow();
+    if (this.leafOnly() && this.filterable()) {
+      afterNextRender(() => this.filter()?.nativeElement.focus(), { injector: this.injector });
+    } else {
+      this.focusFirstRow();
+    }
   }
 
   protected goTo(depth: number): void {
@@ -1029,6 +1145,17 @@ export class CategoryPicker {
       return;
     }
     const rows = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('[data-row]'));
+    if (event.target === this.filter()?.nativeElement) {
+      if (event.key === 'ArrowDown' && rows.length) {
+        rows[0].focus();
+        event.preventDefault();
+      } else if (event.key === 'Enter') {
+        // Enter picks the only match, so typing a unique name is enough.
+        if (this.matches()?.length === 1) this.choose(this.matches()![0].node.id);
+        event.preventDefault();
+      }
+      return;
+    }
     const index = rows.indexOf(event.target as HTMLElement);
     if (index < 0) return;
     const target = event.target as HTMLElement;

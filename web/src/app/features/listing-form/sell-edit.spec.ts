@@ -39,6 +39,13 @@ class FakeAuthAdapter {
   }
 }
 
+const CONDITION_LABELS: Record<string, string> = {
+  LIKE_NEW: 'Like new',
+  VERY_GOOD: 'Very good',
+  GOOD: 'Good',
+  ACCEPTABLE: 'Acceptable',
+};
+
 const TREE: CategoryTreeNode[] = [
   {
     id: 'hw-root',
@@ -410,12 +417,70 @@ describe('sell and edit listing form', () => {
     harness.detectChanges();
   }
 
+  function pickerHost(root: HTMLElement, id: string): HTMLElement {
+    const trigger = byId<HTMLButtonElement>(root, id);
+    if (!trigger) throw new Error('missing picker #' + id);
+    return trigger.closest('app-category-picker') as HTMLElement;
+  }
+
+  /** Opens a picker and returns the visible row labels. */
+  function pickerRows(harness: RouterTestingHarness, root: HTMLElement, id = 'listing-category'): string[] {
+    const trigger = byId<HTMLButtonElement>(root, id)!;
+    if (trigger.getAttribute('aria-expanded') !== 'true') trigger.click();
+    harness.detectChanges();
+    return Array.from(pickerHost(root, id).querySelectorAll<HTMLElement>('[data-row]')).map(
+      (row) => row.textContent!.replace(/\s+/g, ' ').trim(),
+    );
+  }
+  const categoryRows = (harness: RouterTestingHarness, root: HTMLElement) => pickerRows(harness, root);
+
+  /** Picks a row by its name, through the filter box when the picker has one. */
+  function pickOption(harness: RouterTestingHarness, root: HTMLElement, id: string, name: string) {
+    pickerRows(harness, root, id);
+    const host = pickerHost(root, id);
+    const filter = host.querySelector<HTMLInputElement>('.filter');
+    if (filter) {
+      filter.value = name;
+      filter.dispatchEvent(new Event('input'));
+      harness.detectChanges();
+    }
+    const row = Array.from(host.querySelectorAll<HTMLElement>('[data-row]')).find(
+      (candidate) => candidate.querySelector('.category-name')!.firstChild!.textContent!.trim() === name,
+    );
+    if (!row) throw new Error('missing picker row ' + name);
+    row.click();
+    harness.detectChanges();
+  }
+
+  function pickCategory(harness: RouterTestingHarness, root: HTMLElement, id: string) {
+    pickOption(harness, root, 'listing-category', leafName(TREE, id));
+  }
+
+  function leafName(nodes: readonly CategoryTreeNode[], id: string): string {
+    for (const node of nodes) {
+      if (node.id === id) return node.name;
+      const found = node.children.length ? leafName(node.children, id) : '';
+      if (found) return found;
+    }
+    return '';
+  }
+
+  function categoryLabel(root: HTMLElement): string {
+    return byId<HTMLButtonElement>(root, 'listing-category')!.textContent!.trim();
+  }
+
   async function choose(
     harness: RouterTestingHarness,
     root: HTMLElement,
     id: string,
     value: string,
   ) {
+    if (id === 'listing-category' || id === 'listing-condition') {
+      if (id === 'listing-category') pickCategory(harness, root, value);
+      else pickOption(harness, root, id, CONDITION_LABELS[value]);
+      await settle(harness);
+      return;
+    }
     const select = byId<HTMLSelectElement>(root, id);
     if (!select) throw new Error('missing select #' + id);
     select.value = value;
@@ -669,10 +734,7 @@ describe('sell and edit listing form', () => {
       const { harness, root, catalog } = await open('/sell');
       await fillHardware(harness, root);
       catalog.categorySchema.mockImplementation(() => pending);
-      const select = byId<HTMLSelectElement>(root, 'listing-category')!;
-      select.value = 'hw-gpus';
-      select.dispatchEvent(new Event('change'));
-      harness.detectChanges();
+      pickCategory(harness, root, 'hw-gpus');
       expect(button(root, 'Publish listing')!.disabled).toBe(true);
       pending.error(appError(503, 'catalog-unavailable'));
       await settle(harness);
@@ -698,14 +760,18 @@ describe('sell and edit listing form', () => {
       expect(catalog.publishSoftware).not.toHaveBeenCalled();
     });
     it('offers only leaf categories under the chosen type root, named by their path', async () => {
-      const { root } = await open('/sell');
-      const options = Array.from(byId<HTMLSelectElement>(root, 'listing-category')!.options);
-      expect(options.map((option) => [option.value, option.textContent?.trim()])).toEqual([
-        ['', 'Select...'],
-        ['hw-laptops', 'Laptops'],
-        ['hw-gpus', 'Components / GPUs'],
-        ['hw-cables', 'Cables'],
-      ]);
+      const { harness, root } = await open('/sell');
+      expect(categoryLabel(root)).toBe('Select a category');
+      expect(categoryRows(harness, root)).toEqual(['Laptops', 'Components', 'Cables']);
+      const filter = root.querySelector<HTMLInputElement>('app-category-picker .filter')!;
+      expect(document.activeElement).toBe(filter);
+      filter.value = 'gpu';
+      filter.dispatchEvent(new Event('input'));
+      harness.detectChanges();
+      expect(categoryRows(harness, root)).toEqual(['GPUs · Components']);
+      filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await settle(harness);
+      expect(categoryLabel(root)).toBe('Components › GPUs');
     });
 
     it('renders the four attribute types from the leaf schema with units and no range limits', async () => {
@@ -739,6 +805,17 @@ describe('sell and edit listing form', () => {
       expect(root.querySelector('.specifications')).toBeNull();
     });
 
+    it('joins the picked country and the city into the shipping location', async () => {
+      const { harness, root, catalog } = await open('/sell');
+      await fillHardware(harness, root);
+      expect(byId(root, 'listing-shipping-country')!.textContent!.trim()).toBe('Italy');
+      pickOption(harness, root, 'listing-shipping-country', 'Germany');
+      type(harness, root, 'listing-shipping-location', '  Berlin ');
+      button(root, 'Publish listing')!.click();
+      await settle(harness);
+      expect(catalog.publishHardware.mock.calls[0][0].shippingLocation).toBe('Berlin, Germany');
+    });
+
     it('publishes a typed hardware payload with PayPal only, no photos, quantity or draft state', async () => {
       const { harness, root, catalog, toasts, router } = await open('/sell');
       await fillHardware(harness, root);
@@ -752,7 +829,7 @@ describe('sell and edit listing form', () => {
         photos: [],
         paymentMethods: ['PAYPAL'],
         condition: 'GOOD',
-        shippingLocation: 'Turin',
+        shippingLocation: 'Turin, Italy',
         shippingCost: '0',
         attributes: [
           { attributeId: 'a-brand', value: 'Apple' },
@@ -844,9 +921,8 @@ describe('sell and edit listing form', () => {
       button(root, 'Software')!.click();
       await settle(harness);
       expect(byId<HTMLInputElement>(root, 'listing-title')!.value).toBe('Editor');
-      const options = Array.from(byId<HTMLSelectElement>(root, 'listing-category')!.options);
-      expect(options.map((option) => option.value)).toEqual(['', 'sw-tools']);
-      expect(byId<HTMLSelectElement>(root, 'listing-category')!.value).toBe('');
+      expect(categoryLabel(root)).toBe('Select a category');
+      expect(categoryRows(harness, root)).toEqual(['Tools']);
     });
 
     it('disables Software with the developer reason for a non-developer', async () => {
@@ -963,7 +1039,7 @@ describe('sell and edit listing form', () => {
       const { root } = await open('/listings/l1/edit');
       expect(byId<HTMLInputElement>(root, 'listing-title')!.value).toBe('ThinkPad X1');
       expect(byId<HTMLTextAreaElement>(root, 'listing-description')!.value).toBe('Works well.');
-      expect(byId<HTMLSelectElement>(root, 'listing-category')!.value).toBe('hw-laptops');
+      expect(categoryLabel(root)).toBe('Laptops');
       expect(byId<HTMLSelectElement>(root, 'attr-a-brand')!.value).toBe('Lenovo');
       expect(byId<HTMLInputElement>(root, 'attr-a-ram')!.value).toBe('16');
       expect(byId<HTMLInputElement>(root, 'attr-a-screen')!.value).toBe('14.5');
