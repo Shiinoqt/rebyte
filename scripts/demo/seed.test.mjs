@@ -57,6 +57,17 @@ test('unpaid seed creates realistic listings, media and social/chat projections 
   assert.ok(state.uploads.filter(upload=>upload.type==='image/png').every(upload=>upload.bytes.subarray(1,4).toString()==='PNG'));
   assert.ok(Object.entries(data.categories).every(([path,id])=>state.categories.some(category=>category.name===path.split('/').at(-1)&&category.id===id)));
 });
+test('seed reuses a default category the catalog creates after the seed read the tree',async t=>{
+  const fixture=await httpFixture(t);const {state}=fixture;const handle=fixture.handle;
+  const hardware=state.categories.find(category=>category.name==='Hardware');let raced=false;
+  fixture.handle=request=>{
+    if(!raced&&request.method==='POST'&&request.path==='/categories'&&request.body?.name==='Computers'){raced=true;state.categories.push({id:randomUUID(),name:'Computers',parentId:hardware.id});}
+    return handle(request);
+  };
+  const context={targets,tokens,accounts,fetchImpl:fixture.fetchImpl};const data=await seedDemo(context);
+  assert.equal(raced,true);assert.equal(state.categories.filter(category=>category.name==='Computers').length,1);
+  assert.ok(data.categories['Computers/Laptops']);assert.equal(await verifySeed(data,context),true);
+});
 test('seed reuses the catalog default category tree and creates only missing leaves',async t=>{
   const fixture=await httpFixture(t);const {state}=fixture;const add=(name,parentId)=>{const category={id:randomUUID(),name,parentId};state.categories.push(category);return category;};
   const hardware=state.categories.find(category=>category.name==='Hardware');

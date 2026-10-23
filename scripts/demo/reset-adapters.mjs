@@ -236,11 +236,19 @@ export class ResetAdapters {
     const remaining=await this.users(signal);assert.equal(remaining.length,4);assert.deepEqual(new Set(remaining.map(subject)),preserved);
   }
   async bootstrap(signal) {
-    const deadline=Date.now()+60000;
-signal=signal?AbortSignal.any([signal,AbortSignal.timeout(60000)]):AbortSignal.timeout(60000);
+    // Restarted services answer before the gateway sees them: its registry refresh and load-balancer cache
+    // keep returning 503 for over a minute, so refused requests mean "not ready yet" until the deadline.
+    const deadline=Date.now()+180000;
+signal=signal?AbortSignal.any([signal,AbortSignal.timeout(180000)]):AbortSignal.timeout(180000);
+    const get=(path,role='admin')=>seedRequest(path,{token:this.tokens[role],signal,fetchImpl:this.fetchImpl});
     for(;;){
-      const response=await seedRequest('/categories',{token:this.tokens.admin,signal,fetchImpl:this.fetchImpl});const roots=await response.json();
-      if(Array.isArray(roots)&&['Hardware','Software'].every(name=>roots.some(root=>root.name===name))){assert.ok((await this.indexes(signal)).some(index=>index.uid==='listings'));return;}
+      try{
+        const roots=await (await get('/categories')).json();
+        if(Array.isArray(roots)&&['Hardware','Software'].every(name=>roots.some(root=>root.name===name))){
+          await get('/users/me');await get('/notifications','seller');
+          assert.ok((await this.indexes(signal)).some(index=>index.uid==='listings'));return;
+        }
+      }catch(error){if(signal.aborted)throw error;}
       assert.ok(Date.now()<deadline);await delay(500,undefined,{signal});
     }
   }
