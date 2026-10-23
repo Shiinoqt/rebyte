@@ -82,11 +82,14 @@ export async function seedDemo(context) {
   const categories={};const listings=[];
   for(const [type,rootName] of [['hardware','Hardware'],['software','Software']]){
     const root=roots.find(root=>root.name===rootName);assert.ok(root);
-    // Reuse the catalog's default tree where it exists; a duplicate sibling name is a 409.
+    // Reuse the catalog's default tree where it exists. The catalog may still be creating that tree after a
+    // restart, so a refused create (409 duplicate sibling) re-reads the tree and reuses the node it made.
+    const findChild=async(parentId,name)=>{const find=nodes=>{for(const node of nodes){if(node.id===parentId)return node.children?.find(child=>child.name===name);const found=find(node.children??[]);if(found)return found;}};return find(await api.request('admin','GET','/categories'));};
     for(const path of new Set(data[type].map(item=>item.category))){
       let node=root;
       for(const name of path.split('/')){
-        node=node.children?.find(child=>child.name===name)??await api.request('admin','POST','/categories',{name,parentId:node.id}).then(created=>{const child={...created,children:[]};(node.children??=[]).push(child);return child;});
+        const parent=node;
+        node=parent.children?.find(child=>child.name===name)??await api.request('admin','POST','/categories',{name,parentId:parent.id}).catch(async error=>{const existing=await findChild(parent.id,name);if(!existing)throw error;return existing;}).then(created=>{const child={...created,children:created.children??[]};(parent.children??=[]).push(child);return child;});
       }
       assert.ok(!node.children?.length,'Seed category must be a leaf');categories[path]=node.id;
     }

@@ -217,5 +217,15 @@ test('bootstrap deadline also aborts a stalled category HTTP request',{timeout:1
   const adapter={tokens:{admin:'fixture.access.signature'},fetchImpl:(_url,{signal})=>new Promise((resolve,reject)=>{
     assert.ok(signal instanceof AbortSignal);signal.addEventListener('abort',()=>reject(signal.reason),{once:true});
   })};
-  await assert.rejects(ResetAdapters.prototype.bootstrap.call(adapter));assert.deepEqual(deadlines,[60000]);
+  await assert.rejects(ResetAdapters.prototype.bootstrap.call(adapter));assert.deepEqual(deadlines,[180000]);
+});
+test('bootstrap keeps polling while the gateway refuses restarted services',{timeout:5000},async()=>{
+  const calls=[];let refusals=3;
+  const adapter={tokens:{admin:'admin.access.signature',seller:'seller.access.signature'},indexes:async()=>[{uid:'listings'}],fetchImpl:async(url,{headers})=>{
+    const path=new URL(url).pathname;calls.push(path);if(path==='/notifications')assert.equal(headers.Authorization,'Bearer seller.access.signature');
+    if(refusals>0){refusals--;return new Response('{}',{status:503});}
+    return new Response(JSON.stringify(path==='/categories'?[{name:'Hardware'},{name:'Software'}]:{}),{status:200});
+  }};
+  await ResetAdapters.prototype.bootstrap.call(adapter);
+  assert.deepEqual(calls.slice(-3),['/categories','/users/me','/notifications']);assert.equal(calls.filter(path=>path==='/categories').length,4);
 });
