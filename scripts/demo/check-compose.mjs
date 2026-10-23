@@ -205,8 +205,15 @@ export function validateModel(model) {
   assert.equal(model.networks.proxy.name, "coolify");
   const redis = at(model, "redis").REDIS_PASSWORD;
   assert.equal(model.services.redis.user, "redis");
+  assert.deepEqual(model.services.redis.networks.backend.aliases, ["rebyte-redis"]);
+  // Proxy-network members also resolve Coolify's own containers by these names.
+  const coolifyNames = ["coolify", "coolify-db", "postgres", "coolify-proxy", "traefik", "coolify-realtime", "coolify-sentinel", "coolify-redis", "redis"];
+  for (const [name, service] of Object.entries(model.services).filter(([, s]) => "proxy" in (s.networks ?? {})))
+    for (const value of Object.values(service.environment ?? {}))
+      for (const host of coolifyNames)
+        assert.ok(value !== host && !value.includes(`//${host}:`) && !value.includes(`//${host}/`), `${name}: ${host} resolves to Coolify on the proxy network`);
   for (const name of ["api-gateway", "catalog-service", "messaging-service"]) {
-    assert.equal(at(model, name).REDIS_HOST, "redis");
+    assert.equal(at(model, name).REDIS_HOST, "rebyte-redis");
     assert.equal(
       at(model, name).SPRING_DATA_REDIS_PASSWORD,
       redis,

@@ -32,6 +32,12 @@ for (const [name, mutate] of Object.entries({
   "published datastore": (m) => {
     m.services.redis.ports = [{ target: 6379, published: "6379" }];
   },
+  "gateway resolves Coolify's Redis": (m) => {
+    m.services["api-gateway"].environment.REDIS_HOST = "redis";
+  },
+  "gateway reaches Coolify's database": (m) => {
+    m.services["api-gateway"].environment.EUREKA_URL = "http://postgres:5432/";
+  },
   "runner writable config":m=>{m.services['demo-runner'].volumes[0].read_only=false;},
   "runner config copied":m=>{m.services['demo-runner'].volumes[0].volume.nocopy=false;},
   "runner config created implicitly":m=>{m.volumes['reset-config'].external=false;},
