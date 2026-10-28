@@ -9,6 +9,7 @@ import {traceSocket} from './helpers/two-session';
 const WEB='https://rebyte.tech',API='https://api.rebyte.tech';
 const expectedConfig=JSON.parse(readFileSync(resolve(__dirname,'../public/config.demo.json'),'utf8'));
 const roles=['buyer','seller','developer','admin'] as const;
+const uuid=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 type Role=typeof roles[number];
 interface AcceptanceConfig {
   accounts: Record<Role,{email:string;password:string}>;
@@ -25,7 +26,7 @@ function privateConfig():AcceptanceConfig {
     for(const role of roles){assert.ok(config.accounts[role].email&&config.accounts[role].password);assert.match(config.subjects[role],/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/);}
     assert.equal(new Set(roles.map(role=>config.subjects[role])).size,4);
     assert.equal(new Set(roles.map(role=>config.accounts[role].email)).size,4);
-    assert.match(config.hardwareListingId,/^[a-f0-9]{24}$/);assert.match(config.softwareListingId,/^[a-f0-9]{24}$/);
+    assert.match(config.hardwareListingId,uuid);assert.match(config.softwareListingId,uuid);
     return config;
   }catch{throw Error('Private demo acceptance configuration is missing or invalid');}
 }
@@ -45,8 +46,8 @@ async function login(page:Page,role:Role,config:AcceptanceConfig):Promise<string
   try{
     await runtimeConfig(page);await page.goto('/login');
     expect(new URL(page.url()).origin).toBe(WEB);
-    for(const [label,value] of [['Email',config.accounts[role].email],['Password',config.accounts[role].password]]){
-      await page.getByLabel(label,{exact:true}).evaluate((element,secret)=>{
+    for(const [selector,value] of [['#auth-email',config.accounts[role].email],['#auth-password',config.accounts[role].password]]){
+      await page.locator(selector).evaluate((element,secret)=>{
         const input=element as HTMLInputElement;
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,secret);
         input.dispatchEvent(new Event('input',{bubbles:true}));
@@ -71,7 +72,7 @@ for(const viewport of [{name:'desktop',width:1280,height:800},{name:'phone',widt
     await page.goto('/');await expect(page.getByRole('link',{name:'Log in',exact:true})).toBeVisible();
     const cards=page.getByRole('main').getByRole('article');await expect.poll(()=>cards.count()).toBeGreaterThanOrEqual(4);
     await assertNoOverflow(page);await cards.first().locator('a[href^="/listings/"]').first().click();
-    await expect(page).toHaveURL(url=>url.origin===WEB&&/^\/listings\/[a-f0-9]{24}$/.test(url.pathname));
+    await expect(page).toHaveURL(url=>url.origin===WEB&&/^\/listings\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(url.pathname));
     const destination=page.url();await page.reload();await expect(page).toHaveURL(destination);
     await assertNoOverflow(page);verify();
   });

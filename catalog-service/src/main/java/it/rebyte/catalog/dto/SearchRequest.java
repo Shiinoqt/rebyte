@@ -14,7 +14,11 @@ public record SearchRequest(
         BigDecimal maximumPrice,
         Map<String, AttributeFilter> attributes,
         int offset,
-        int size) {
+        int size,
+        Sort sort) {
+
+    /** Publish-date ordering; a null sort in the request means relevance. */
+    public enum Sort { NEWEST, OLDEST }
 
     public SearchRequest {
         attributes = attributes == null ? Map.of() : Map.copyOf(attributes);

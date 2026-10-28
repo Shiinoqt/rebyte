@@ -12,7 +12,14 @@ import {
   StatusChip,
 } from './content';
 import { FormField, MoneyInput, StarRating } from './forms';
-import { CountBadge, IconButton, LoadMore, PillTabs, SegmentedControl } from './navigation';
+import {
+  CountBadge,
+  IconButton,
+  LoadMore,
+  MenuSelect,
+  PillTabs,
+  SegmentedControl,
+} from './navigation';
 import {
   Banner,
   BusyButton,
@@ -216,6 +223,103 @@ const choices = [
 
 describe('Navigation primitives', () => {
   afterEach(() => TestBed.resetTestingModule());
+
+  describe('menu select', () => {
+    const statuses = [
+      { value: '', label: 'All' },
+      { value: 'PAID', label: 'Paid' },
+      { value: 'SHIPPED', label: 'Shipped' },
+    ];
+    const rows = (fixture: ComponentFixture<MenuSelect>) =>
+      [...root(fixture).querySelectorAll<HTMLButtonElement>('[data-row]')];
+    const press = async (fixture: ComponentFixture<MenuSelect>, key: string) => {
+      (document.activeElement as HTMLElement).dispatchEvent(
+        new KeyboardEvent('keydown', { key, bubbles: true }),
+      );
+      await fixture.whenStable();
+    };
+    const open = async (fixture: ComponentFixture<MenuSelect>) => {
+      button(fixture).click();
+      await fixture.whenStable();
+    };
+
+    it('opens, moves focus with the keyboard, closes and emits the chosen value', async () => {
+      const fixture = await render(MenuSelect, {
+        label: 'Status',
+        options: statuses,
+        selected: 'PAID',
+      });
+      const trigger = button(fixture);
+      const chosen: string[] = [];
+      fixture.componentInstance.selectedChange.subscribe((value) => chosen.push(value));
+      expect(trigger.textContent).toContain('Status');
+      expect(trigger.textContent).toContain('Paid');
+      expect(trigger.getAttribute('aria-expanded')).toBe('false');
+
+      await open(fixture);
+      expect(trigger.getAttribute('aria-expanded')).toBe('true');
+      expect(document.activeElement?.textContent?.trim()).toBe('Paid');
+      expect(document.activeElement?.getAttribute('aria-current')).toBe('true');
+      const focused = () => document.activeElement?.textContent?.trim();
+      await press(fixture, 'ArrowDown');
+      expect(focused()).toBe('Shipped');
+      await press(fixture, 'ArrowDown');
+      expect(focused()).toBe('All');
+      await press(fixture, 'ArrowUp');
+      expect(focused()).toBe('Shipped');
+      await press(fixture, 'Home');
+      expect(focused()).toBe('All');
+      await press(fixture, 'End');
+      expect(focused()).toBe('Shipped');
+
+      await press(fixture, 'Escape');
+      expect(rows(fixture)).toHaveLength(0);
+      expect(trigger.getAttribute('aria-expanded')).toBe('false');
+      expect(document.activeElement).toBe(trigger);
+
+      await open(fixture);
+      document.body.click();
+      await fixture.whenStable();
+      expect(rows(fixture)).toHaveLength(0);
+
+      await open(fixture);
+      rows(fixture)[2].click();
+      await fixture.whenStable();
+      expect(chosen).toEqual(['SHIPPED']);
+      expect(rows(fixture)).toHaveLength(0);
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it('names the trigger and menu, and supports the icon and end alignment variants', async () => {
+      const plain = await render(MenuSelect, { label: 'Sort by', options: statuses });
+      expect(button(plain).hasAttribute('aria-label')).toBe(false);
+      await open(plain);
+      expect(root(plain).querySelector('[role="group"]')?.getAttribute('aria-label')).toBe(
+        'Sort by',
+      );
+      expect(button(plain).textContent).toContain('All');
+      expect(root(plain).classList.contains('end')).toBe(false);
+      expect(root(plain).classList.contains('with-icon')).toBe(false);
+
+      const named = await render(MenuSelect, {
+        label: 'Status',
+        name: 'Filter loaded orders by status',
+        options: statuses,
+        selected: 'PAID',
+        icon: 'M0 0h1',
+        align: 'end',
+      });
+      expect(button(named).getAttribute('aria-label')).toBe('Filter loaded orders by status: Paid');
+      expect(button(named).querySelectorAll('svg')).toHaveLength(2);
+      expect(button(named).textContent).toContain('Status');
+      expect(root(named).classList.contains('end')).toBe(true);
+      expect(root(named).classList.contains('with-icon')).toBe(true);
+      await open(named);
+      expect(root(named).querySelector('[role="group"]')?.getAttribute('aria-label')).toBe(
+        'Filter loaded orders by status',
+      );
+    });
+  });
 
   it.each([
     [0, null],

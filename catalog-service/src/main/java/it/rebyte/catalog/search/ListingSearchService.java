@@ -66,7 +66,7 @@ public class ListingSearchService {
 
     /** Compatibility entry point retained for the free-text search contract. */
     public SearchResultPage search(String query) {
-        return search(new SearchRequest(query, null, null, null, null, Map.of(), 0, defaultSize));
+        return search(new SearchRequest(query, null, null, null, null, Map.of(), 0, defaultSize, null));
     }
 
     public SearchResultPage search(SearchRequest request) {
@@ -82,6 +82,10 @@ public class ListingSearchService {
                 .limit(size);
         if (StringUtils.hasText(request.query())) {
             builder.q(request.query());
+        }
+        if (request.sort() != null) {
+            builder.sort(new String[] {
+                    request.sort() == SearchRequest.Sort.NEWEST ? "publishedAt:desc" : "publishedAt:asc"});
         }
         if (!context.schema().isEmpty()) {
             builder.facets(facetService.fields(context.schema()));

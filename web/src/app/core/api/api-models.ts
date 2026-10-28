@@ -598,9 +598,11 @@ export interface MyListingsQuery extends CursorQuery {
 export type AttributeSearchParams = Partial<
   Record<`attr.${string}`, string | number | boolean | null>
 >;
+export type SearchSort = 'newest' | 'oldest';
 export interface CategoryBrowseQuery {
   offset?: number | null;
   size?: number | null;
+  sort?: SearchSort | null;
   attributes?: AttributeSearchParams;
 }
 export interface SearchQuery extends CategoryBrowseQuery {

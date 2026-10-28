@@ -101,9 +101,13 @@ public class ListingIndexSettings implements ApplicationRunner {
         // Meilisearch applies the first matching granular rule. Specific
         // numeric fields must therefore precede the catch-all wildcard.
         settings.setFilterableAttributesConfig(new FilterableAttributesConfig[] {numericOverride, wildcard});
-        settings.setSortableAttributes(new String[] {"id"});
+        // shortcut: publishedAt is indexed as an ISO-8601 string and Meilisearch sorts strings by bytes, so
+        // listings published within the same second can mis-order; upgrade to a numeric epoch-millis field
+        // when exact sub-second order matters.
+        settings.setSortableAttributes(new String[] {"id", "publishedAt"});
+        // A chosen order must beat typo, proximity and attribute; the sort rule is inert without a sort parameter.
         settings.setRankingRules(new String[] {
-                "words", "typo", "proximity", "attribute", "sort", "exactness", "id:asc"
+                "words", "sort", "typo", "proximity", "attribute", "exactness", "id:asc"
         });
         return settings;
     }

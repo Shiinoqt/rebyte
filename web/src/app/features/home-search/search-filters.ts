@@ -22,7 +22,7 @@ import {
   ListingType,
 } from '../../core/api/api-models';
 import { Banner } from '../../shared/ui/feedback';
-import { CountBadge, SegmentedControl, SelectionOption } from '../../shared/ui/navigation';
+import { CountBadge, MenuSelect, SegmentedControl, SelectionOption } from '../../shared/ui/navigation';
 import {
   PRICE_MAX,
   SearchFilterState,
@@ -36,7 +36,8 @@ export const RANGE_ATTRIBUTES: readonly string[] = ['vram_gb'];
 
 const AMOUNT = /^\d{1,7}(?:\.\d{1,2})?$/;
 const PHONE_QUERY = '(max-width: 640px)';
-const COMPACT_PHONE_QUERY = '(max-width: 440px)';
+// Below this width the type control, sort pill and Filters button do not fit on one line.
+const COMPACT_PHONE_QUERY = '(max-width: 560px)';
 const FOCUSABLE =
   'button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]';
 
@@ -113,6 +114,19 @@ function selectedTrail(
   return [];
 }
 
+function priceLabel(min: string | null, max: string | null): string | null {
+  if (min !== null && max !== null) return `€${min}–€${max}`;
+  if (min !== null) return `€${min}+`;
+  if (max !== null) return `Up to €${max}`;
+  return null;
+}
+
+interface FilterChip {
+  readonly id: string;
+  readonly label: string;
+  readonly remove: () => void;
+}
+
 export function humanise(name: string): string {
   const spaced = name.replace(/_/g, ' ');
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
@@ -135,6 +149,8 @@ function mediaQuerySignal(queryText: string): Signal<boolean> {
 }
 
 const CHEVRON_DOWN = 'M6 9l6 6 6-6';
+const SORT_ICON = 'M3 8l4-4 4 4M7 4v16M21 16l-4 4-4-4M17 20V4';
+const CLOSE_ICON = 'M6 6l12 12M18 6L6 18';
 const CHEVRON_RIGHT = 'M9 6l6 6-6 6';
 const CHECK = 'M5 13l4 4L19 7';
 
@@ -212,6 +228,12 @@ const CHECK = 'M5 13l4 4L19 7';
       justify-content: space-between;
       gap: var(--space-sm);
       margin-bottom: var(--space-sm);
+      font-weight: var(--weight-semibold);
+    }
+    .sheet-heading h3 {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: var(--text-caption);
       font-weight: var(--weight-semibold);
     }
     .clear-price {
@@ -348,6 +370,9 @@ const CHECK = 'M5 13l4 4L19 7';
       font-family: var(--font-mono);
       font-size: var(--text-body-size);
     }
+    :host(.inline-only) input {
+      font-family: var(--font-ui);
+    }
     input:focus-visible {
       outline: none;
     }
@@ -386,7 +411,7 @@ const CHECK = 'M5 13l4 4L19 7';
     }
     @if (inlineOnly()) {
       <div class="sheet-heading">
-        <span>Price</span>
+        <h3>Price</h3>
         <button type="button" class="clear-price" (click)="clearPrice()">Clear price</button>
       </div>
     }
@@ -515,14 +540,7 @@ export class PriceControl {
 
   protected readonly priceMax = PRICE_MAX;
   protected readonly open = signal(false);
-  protected readonly triggerLabel = computed(() => {
-    const min = this.min();
-    const max = this.max();
-    if (min !== null && max !== null) return `€${min}–€${max}`;
-    if (min !== null) return `€${min}+`;
-    if (max !== null) return `Up to €${max}`;
-    return 'Price';
-  });
+  protected readonly triggerLabel = computed(() => priceLabel(this.min(), this.max()) ?? 'Price');
   private readonly low = linkedSignal(() => snapThumb(Number(this.min() ?? 0), 0));
   protected readonly high = linkedSignal(() =>
     this.max() === null ? PRICE_MAX : snapThumb(Number(this.max()), PRICE_MAX),
@@ -769,6 +787,7 @@ export class PriceControl {
     :host(.field) {
       display: block;
     }
+    :host(.inline) .trigger,
     :host(.field) .trigger {
       min-height: var(--control-md);
       border: 1px solid var(--border-control);
@@ -817,12 +836,6 @@ export class PriceControl {
       padding: var(--space-xs);
       background: var(--surface);
     }
-    .disabled-hint {
-      margin: 0;
-      padding: var(--space-sm) var(--space-md);
-      color: var(--text-muted);
-      font-size: var(--text-caption);
-    }
     .popover {
       position: absolute;
       top: calc(100% + var(--space-sm));
@@ -838,8 +851,16 @@ export class PriceControl {
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow-md);
     }
+    :host(.inline) .panel {
+      display: flex;
+      flex-direction: column;
+      max-height: min(24rem, 50vh);
+      margin-top: var(--space-xs);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+    }
     /* The list scrolls inside the padded panel so the scrollbar never clips the rounded corners. */
-    .popover > ul {
+    .panel > ul {
       min-height: 0;
       overflow-y: auto;
       scrollbar-gutter: stable;
@@ -887,31 +908,31 @@ export class PriceControl {
     .check {
       color: var(--primary);
     }
+    @media (max-width: 640px) {
+      .filter {
+        font-size: var(--control-text-phone);
+      }
+    }
   `,
   template: `
-    @if (!inline()) {
-      <button
-        #trigger
-        type="button"
-        class="trigger"
-        [attr.id]="triggerId()"
-        [disabled]="disabled()"
-        aria-haspopup="true"
-        [attr.aria-expanded]="open() && !disabled()"
-        [attr.aria-invalid]="invalid() ? 'true' : null"
-        [attr.aria-describedby]="describedBy()"
-        (click)="toggle()"
-      >
-        <span [class.placeholder]="leafOnly() && !selected()">{{ label() }}</span>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="chevronDown" /></svg>
-      </button>
-    }
-    @if (inline() && disabled()) {
-      <p class="disabled-hint">Choose a type first.</p>
-    }
-    @if ((inline() && !disabled()) || (!inline() && open() && !disabled())) {
+    <button
+      #trigger
+      type="button"
+      class="trigger"
+      [attr.id]="triggerId()"
+      [disabled]="disabled()"
+      [attr.aria-haspopup]="inline() ? null : 'true'"
+      [attr.aria-expanded]="open() && !disabled()"
+      [attr.aria-invalid]="invalid() ? 'true' : null"
+      [attr.aria-describedby]="describedBy()"
+      (click)="toggle()"
+    >
+      <span [class.placeholder]="leafOnly() && !selected()">{{ label() }}</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="chevronDown" /></svg>
+    </button>
+    @if (open() && !disabled()) {
       <div class="panel" role="group" aria-label="Categories" [class.popover]="!inline()">
-        @if (leafOnly() && filterable()) {
+        @if (searchable()) {
           <input
             #filter
             class="filter"
@@ -1021,9 +1042,10 @@ export class PriceControl {
 export class CategoryPicker {
   readonly tree = input.required<readonly CategoryTreeNode[]>();
   readonly selected = input<string | null>(null);
-  readonly inline = input(false);
   readonly flattened = input(false);
   readonly disabled = input(false);
+  /** Sheet mode: the panel expands in flow under the trigger and has a filter box. */
+  readonly inline = input(false);
   /** Form mode: only leaves are selectable, the trigger shows the full path and the panel has a filter box. */
   readonly leafOnly = input(false);
   readonly placeholder = input('Select a category');
@@ -1063,19 +1085,19 @@ export class CategoryPicker {
     return this.find(this.tree(), this.selected())?.name ?? 'All categories';
   });
   protected readonly query = signal('');
-  /** Leaves whose name or ancestor path contains every typed word; null while the filter is empty. */
+  protected readonly searchable = computed(() => this.filterable() && (this.leafOnly() || this.inline()));
+  /** Categories (leaves only in form mode) whose name or ancestor path contains every typed word; null while the filter is empty. */
   protected readonly matches = computed(() => {
     const words = this.query().trim().toLowerCase().split(/\s+/).filter(Boolean);
-    if (!this.leafOnly() || !words.length) return null;
+    if (!this.searchable() || !words.length) return null;
     const found: { node: CategoryTreeNode; path: string }[] = [];
     const visit = (nodes: readonly CategoryTreeNode[], ancestors: string[]) => {
       for (const node of nodes) {
-        if (node.children.length) {
-          visit(node.children, [...ancestors, node.name]);
-          continue;
-        }
         const text = [...ancestors, node.name].join(' ').toLowerCase();
-        if (words.every((word) => text.includes(word))) found.push({ node, path: ancestors.join(' › ') });
+        if ((!this.leafOnly() || !node.children.length) && words.every((word) => text.includes(word))) {
+          found.push({ node, path: ancestors.join(' › ') });
+        }
+        visit(node.children, [...ancestors, node.name]);
       }
     };
     visit(this.tree(), []);
@@ -1101,7 +1123,10 @@ export class CategoryPicker {
     this.trail.set(selectedTrail(this.tree(), this.selected()));
     this.query.set('');
     this.open.set(true);
-    if (this.leafOnly() && this.filterable()) {
+    if (this.inline()) {
+      // Focusing the filter would open the soft keyboard over the list on a phone.
+      this.focusSelectedRow();
+    } else if (this.leafOnly() && this.filterable()) {
       afterNextRender(() => this.filter()?.nativeElement.focus(), { injector: this.injector });
     } else {
       this.focusFirstRow();
@@ -1139,7 +1164,7 @@ export class CategoryPicker {
 
   protected keydown(event: KeyboardEvent): void {
     if (this.disabled()) return;
-    if (event.key === 'Escape' && !this.inline() && this.open()) {
+    if (event.key === 'Escape' && this.open()) {
       event.stopPropagation();
       this.close();
       return;
@@ -1189,6 +1214,17 @@ export class CategoryPicker {
   private close(): void {
     this.open.set(false);
     this.trigger()?.nativeElement.focus();
+  }
+
+  private focusSelectedRow(): void {
+    afterNextRender(
+      () =>
+        (
+          this.host.nativeElement.querySelector<HTMLElement>('[data-row][aria-current="true"]') ??
+          this.host.nativeElement.querySelector<HTMLElement>('[data-row]')
+        )?.focus(),
+      { injector: this.injector },
+    );
   }
 
   private focusFirstRow(): void {
@@ -1408,7 +1444,7 @@ export class AttributeFilters {
   selector: 'app-search-filters',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Banner, CategoryPicker, PriceControl, AttributeFilters, SegmentedControl, CountBadge],
+  imports: [Banner, CategoryPicker, PriceControl, MenuSelect, AttributeFilters, SegmentedControl, CountBadge],
   styles: `
     :host {
       display: block;
@@ -1449,6 +1485,42 @@ export class AttributeFilters {
     .phone-row {
       flex-wrap: nowrap;
     }
+    .phone-row app-menu-select {
+      flex: none;
+    }
+    /* One scrolling line keeps the results from shifting by a variable height as filters change. */
+    .chips {
+      display: flex;
+      gap: var(--space-sm);
+      margin: var(--space-sm) 0 0;
+      padding: 4px;
+      list-style: none;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: thin;
+    }
+    .chips li {
+      flex: none;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-xs);
+      min-height: 44px;
+      white-space: nowrap;
+      background: var(--surface-selected);
+      font-weight: normal;
+    }
+    .chip svg {
+      flex: none;
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
     .phone-row.compact .filters-button {
       margin-left: 0;
     }
@@ -1488,9 +1560,9 @@ export class AttributeFilters {
     @container filters-bar (max-width: 66rem) {
       .bar {
         display: grid;
-        grid-template-columns: minmax(20rem, 1fr) minmax(10rem, 1fr) auto auto;
+        grid-template-columns: minmax(20rem, 1fr) minmax(10rem, 1fr) auto auto auto;
         grid-template-areas:
-          'type category price clear';
+          'type category price sort clear';
         border-radius: var(--radius-lg);
       }
       .bar > app-segmented-control {
@@ -1503,6 +1575,9 @@ export class AttributeFilters {
       }
       .bar > app-price-control {
         grid-area: price;
+      }
+      .bar > .sort {
+        grid-area: sort;
       }
       .bar > .clear {
         grid-area: clear;
@@ -1525,6 +1600,7 @@ export class AttributeFilters {
           'type'
           'category'
           'price'
+          'sort'
           'clear';
       }
       .bar > app-segmented-control {
@@ -1534,7 +1610,8 @@ export class AttributeFilters {
       .bar > app-category-picker {
         width: 100%;
       }
-      .bar > app-price-control {
+      .bar > app-price-control,
+      .bar > .sort {
         justify-self: start;
       }
     }
@@ -1611,6 +1688,13 @@ export class AttributeFilters {
             (selectedChange)="setType($event)"
           />
         }
+        <app-menu-select
+          label="Sort by"
+          [icon]="sortIcon"
+          [options]="sortOptions"
+          [selected]="search.state().sort ?? ''"
+          (selectedChange)="setSort($event)"
+        />
         <button
           #sheetTrigger
           type="button"
@@ -1622,6 +1706,23 @@ export class AttributeFilters {
           <app-count-badge [count]="search.filters()" label="active filters" />
         </button>
       </div>
+      @if (chips().length) {
+        <ul class="chips" aria-label="Active filters">
+          @for (chip of chips(); track chip.id) {
+            <li>
+              <button
+                type="button"
+                class="chip"
+                [attr.aria-label]="'Remove ' + chip.label + ' filter'"
+                (click)="removeChip($index, chip)"
+              >
+                {{ chip.label }}
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="closeIcon" /></svg>
+              </button>
+            </li>
+          }
+        </ul>
+      }
       @if (sheetOpen()) {
         <div
           #sheet
@@ -1707,6 +1808,14 @@ export class AttributeFilters {
             (commit)="search.update($event)"
             (clear)="search.update({ min: null, max: null })"
           />
+          <app-menu-select
+            class="sort"
+            label="Sort by"
+            align="end"
+            [options]="sortOptions"
+            [selected]="search.state().sort ?? ''"
+            (selectedChange)="setSort($event)"
+          />
           @if (search.hasFilters()) {
             <button type="button" class="clear" (click)="search.clearFilters()">Clear</button>
           }
@@ -1737,13 +1846,62 @@ export class SearchFilters {
   protected readonly phone = mediaQuerySignal(PHONE_QUERY);
   protected readonly compactPhone = mediaQuerySignal(COMPACT_PHONE_QUERY);
   protected readonly sheetOpen = signal(false);
+  protected readonly closeIcon = CLOSE_ICON;
   protected readonly typeOptions: readonly SelectionOption[] = [
     { value: '', label: 'All' },
     { value: 'HARDWARE', label: 'Hardware' },
     { value: 'SOFTWARE', label: 'Software' },
   ];
+  protected readonly sortOptions: readonly SelectionOption[] = [
+    { value: '', label: 'Relevance' },
+    { value: 'newest', label: 'Most recent' },
+    { value: 'oldest', label: 'Oldest' },
+  ];
+  protected readonly sortIcon = SORT_ICON;
+  protected readonly chips = computed<readonly FilterChip[]>(() => {
+    const state = this.search.state();
+    const chips: FilterChip[] = [];
+    const type = this.typeOptions.find((option) => option.value === state.type);
+    if (state.type && type) {
+      chips.push({ id: 'type', label: type.label, remove: () => this.setType('') });
+    }
+    if (state.cat) {
+      chips.push({
+        id: 'cat',
+        label: findCategoryNode(this.tree(), state.cat)?.name ?? 'Category',
+        remove: () => this.search.update({ cat: null }),
+      });
+    }
+    const price = priceLabel(state.min, state.max);
+    if (price) {
+      chips.push({
+        id: 'price',
+        label: price,
+        remove: () => this.search.update({ min: null, max: null }),
+      });
+    }
+    const bases = new Set(
+      Object.keys(state.attrs).map((key) => key.replace(/\.(?:min|max)$/, '')),
+    );
+    for (const name of bases) {
+      const definition = this.attributes().find((attribute) => attribute.name === name);
+      const value = this.attributeValue(name, state.attrs, definition?.type);
+      chips.push({
+        id: `attr.${name}`,
+        label: `${humanise(name)}: ${value}${definition?.unit ? ` ${definition.unit}` : ''}`,
+        remove: () => {
+          const next = { ...this.search.state().attrs };
+          for (const key of [name, `${name}.min`, `${name}.max`]) delete next[key];
+          this.search.update({ attrs: next });
+        },
+      });
+    }
+    return chips;
+  });
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly document = inject(DOCUMENT);
   private readonly injector = inject(Injector);
+  private pendingFocus: { index: number; chips: readonly FilterChip[] } | null = null;
   private readonly sheetTrigger = viewChild<ElementRef<HTMLButtonElement>>('sheetTrigger');
   private readonly sheet = viewChild<ElementRef<HTMLElement>>('sheet');
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('close');
@@ -1763,6 +1921,21 @@ export class SearchFilters {
     effect(() => {
       if (!this.phone()) this.sheetOpen.set(false);
     });
+    effect(() => {
+      const chips = this.chips();
+      const pending = this.pendingFocus;
+      // The URL navigation is async: focusing before the chips change would target the removed chip.
+      if (!pending || pending.chips === chips) return;
+      this.pendingFocus = null;
+      afterNextRender(
+        () => {
+          const buttons = this.host.nativeElement.querySelectorAll<HTMLElement>('.chips button');
+          const next = buttons[Math.min(pending.index, buttons.length - 1)];
+          (next ?? this.sheetTrigger()?.nativeElement)?.focus();
+        },
+        { injector: this.injector },
+      );
+    });
     effect((onCleanup) => {
       if (!this.sheetOpen()) return;
       const body = this.document.body;
@@ -1770,6 +1943,31 @@ export class SearchFilters {
       body.style.overflow = 'hidden';
       onCleanup(() => (body.style.overflow = previous));
     });
+  }
+
+  protected removeChip(index: number, chip: FilterChip): void {
+    this.pendingFocus = { index, chips: this.chips() };
+    chip.remove();
+  }
+
+  private attributeValue(
+    name: string,
+    attrs: Readonly<Record<string, string>>,
+    type: string | undefined,
+  ): string {
+    if (RANGE_ATTRIBUTES.includes(name)) {
+      const min = attrs[`${name}.min`];
+      const max = attrs[`${name}.max`];
+      if (min !== undefined && max !== undefined) return `${min}–${max}`;
+      return min !== undefined ? `${min}+` : `up to ${max}`;
+    }
+    const value = attrs[name];
+    if (type === 'BOOLEAN') return value === 'true' ? 'Yes' : 'No';
+    return value;
+  }
+
+  protected setSort(value: string): void {
+    this.search.update({ sort: value === 'newest' || value === 'oldest' ? value : null });
   }
 
   protected setType(value: string): void {

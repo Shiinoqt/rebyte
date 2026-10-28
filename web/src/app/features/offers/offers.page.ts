@@ -17,7 +17,7 @@ import { AppError } from '../../core/http/app-error';
 import { errorCopy } from '../../core/http/error-copy';
 import { EmptyState, ErrorState, Skeleton } from '../../shared/ui/feedback';
 import { ModalDialog } from '../../shared/ui/dialog';
-import { SegmentedControl } from '../../shared/ui/navigation';
+import { MenuSelect, SegmentedControl, SelectionOption } from '../../shared/ui/navigation';
 import { reloadThroughAnchor, startAccountAutoReload } from '../profile/account-auto-reload';
 import { EurPipe, StatusChip } from '../../shared/ui/content';
 
@@ -52,6 +52,7 @@ const emptyState = (): State => ({
     Skeleton,
     ModalDialog,
     SegmentedControl,
+    MenuSelect,
     EurPipe,
     StatusChip,
   ],
@@ -66,19 +67,13 @@ const emptyState = (): State => ({
         (selectedChange)="selectRole($event)"
       />
     </div>
-    <span class="status-filter">
-      <select
-        aria-label="Filter loaded offers by status"
-        [value]="status()"
-        (change)="status.set($any($event.target).value)"
-      >
-        <option value="">All</option>
-        @for (value of statuses; track value) {
-          <option [value]="value">{{ label(value) }}</option>
-        }
-      </select>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-    </span>
+    <app-menu-select
+      label="Status"
+      name="Filter loaded offers by status"
+      [options]="statusOptions"
+      [selected]="status()"
+      (selectedChange)="status.set($event)"
+    />
     @if (message()) {
       <p role="alert">{{ message() }}</p>
     }
@@ -192,6 +187,10 @@ export class OffersPage {
     { value: 'sent', label: 'Sent' },
   ];
   readonly statuses: OfferStatus[] = ['PENDING', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'WITHDRAWN'];
+  readonly statusOptions: readonly SelectionOption[] = [
+    { value: '', label: 'All' },
+    ...this.statuses.map((value) => ({ value, label: this.label(value) })),
+  ];
   readonly status = signal('');
   private readonly states = signal<Record<Role, State>>({
     received: emptyState(),

@@ -20,6 +20,7 @@ import {
   SearchHit,
   SearchQuery,
   SearchResultPage,
+  SearchSort,
 } from '../../core/api/api-models';
 import { CatalogApi } from '../../core/api/catalog-api';
 import { AppError } from '../../core/http/app-error';
@@ -41,6 +42,7 @@ export interface SearchFilterState {
   readonly type: ListingType | null;
   readonly min: string | null;
   readonly max: string | null;
+  readonly sort: SearchSort | null;
   // Keys are the attribute name, optionally suffixed with .min or .max, without the attr. prefix.
   readonly attrs: Readonly<Record<string, string>>;
 }
@@ -51,6 +53,7 @@ export const EMPTY_STATE: SearchFilterState = {
   type: null,
   min: null,
   max: null,
+  sort: null,
   attrs: {},
 };
 
@@ -65,6 +68,7 @@ export function parseSearchState(params: ParamMap): SearchFilterState {
   const type = params.get('type');
   const min = params.get('min');
   const max = params.get('max');
+  const sort = params.get('sort');
   const attrs: Record<string, string> = {};
   for (const key of params.keys) {
     const match = ATTRIBUTE_KEY.exec(key);
@@ -84,6 +88,7 @@ export function parseSearchState(params: ParamMap): SearchFilterState {
     type: type === 'HARDWARE' || type === 'SOFTWARE' ? type : null,
     min: min !== null && PRICE.test(min) ? min : null,
     max: max !== null && PRICE.test(max) ? max : null,
+    sort: sort === 'newest' || sort === 'oldest' ? sort : null,
     attrs,
   });
 }
@@ -95,6 +100,7 @@ export function toQueryParams(state: SearchFilterState): Params {
   if (state.type) params['type'] = state.type;
   if (state.min) params['min'] = state.min;
   if (state.max) params['max'] = state.max;
+  if (state.sort) params['sort'] = state.sort;
   for (const [key, value] of Object.entries(state.attrs)) params['attr.' + key] = value;
   return params;
 }
@@ -131,6 +137,7 @@ export function toSearchQuery(state: SearchFilterState, offset: number): SearchQ
     maxPrice: sendPrice ? price.max : null,
     offset,
     size: PAGE_SIZE,
+    sort: state.sort,
     attributes,
   };
 }
@@ -243,7 +250,8 @@ export class SearchStateService {
 
   clearFilters(): void {
     this.filterRefused.set(false);
-    this.navigate({ ...EMPTY_STATE, q: (this.pendingState ?? this.state()).q }, false);
+    const { q, sort } = this.pendingState ?? this.state();
+    this.navigate({ ...EMPTY_STATE, q, sort }, false);
   }
 
   clearAll(): void {

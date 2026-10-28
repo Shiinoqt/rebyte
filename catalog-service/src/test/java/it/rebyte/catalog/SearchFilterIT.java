@@ -134,6 +134,48 @@ class SearchFilterIT extends CatalogInfraTestBase {
                 .isEqualTo(422);
     }
 
+    @Test
+    void sortByPublishDateOrdersBothEndpointsAheadOfTextRankingAndRejectsUnknownValues() throws Exception {
+        String token = "sort" + UUID.randomUUID().toString().replace("-", "");
+        Category leaf = category(token + "-leaf", token + " leaf", token + "-root", List.of(token + " root"), List.of());
+        Category root = category(token + "-root", token + " root", null, List.of(), List.of(leaf.getId()));
+        categories.saveAll(List.of(root, leaf));
+        categoryTreeCache.evict();
+
+        Instant base = Instant.parse("2026-01-01T10:00:00Z");
+        add(dated(token + "-oldest", token + " oldest", "plain", leaf, base));
+        add(dated(token + "-middle", token + " middle", "plain", leaf, base.plusSeconds(3600)));
+        add(dated(token + "-newest", "plain newest", token + " in the description", leaf, base.plusSeconds(7200)));
+
+        List<String> newestFirst = List.of(token + "-newest", token + "-middle", token + "-oldest");
+        assertThat(ids(http.getForObject("/search?q=" + token + "&sort=newest", SearchResultPage.class)))
+                .containsExactlyElementsOf(newestFirst);
+        assertThat(ids(http.getForObject("/search?q=" + token + "&sort=oldest", SearchResultPage.class)))
+                .containsExactlyElementsOf(newestFirst.reversed());
+        assertThat(ids(http.getForObject(
+                "/categories/" + leaf.getId() + "/listings?sort=newest", SearchResultPage.class)))
+                .containsExactlyElementsOf(newestFirst);
+
+        for (String uri : List.of("/search?sort=popular", "/categories/" + leaf.getId() + "/listings?sort=popular")) {
+            var response = http.getForEntity(uri, String.class);
+            assertThat(response.getStatusCode().value()).isEqualTo(400);
+            assertThat(response.getBody()).contains("urn:rebyte:problem:invalid-sort");
+        }
+
+        assertThat(mapper.readTree(index.getRawDocument(token + "-newest")).path("publishedAt").isTextual()).isTrue();
+    }
+
+    private static List<String> ids(SearchResultPage page) {
+        return page.hits().stream().map(hit -> hit.id()).toList();
+    }
+
+    private ListingDocument dated(String id, String title, String description, Category leaf, Instant publishedAt) {
+        return new ListingDocument(id, title, description, new BigDecimal("10.00"), ListingType.SOFTWARE,
+                ListingStatus.ACTIVE, leaf.getId(), List.of(leaf.getParentId(), leaf.getId()),
+                List.of(leaf.getAncestorNames().getFirst(), leaf.getName()),
+                "seller", "seller", publishedAt, null, null, List.of(), null, null, 0L, Map.of());
+    }
+
     private Category category(String id, String name, String parentId, List<String> ancestors, List<String> children) {
         return new Category(id, name, parentId, ancestors, children, List.of(), "admin", Instant.now(), 0L);
     }

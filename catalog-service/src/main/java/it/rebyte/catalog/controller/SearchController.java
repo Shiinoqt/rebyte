@@ -15,6 +15,7 @@ import it.rebyte.catalog.dto.SearchRequest;
 import it.rebyte.catalog.dto.SearchRequest.AttributeFilter;
 import it.rebyte.catalog.dto.SearchResultPage;
 import it.rebyte.catalog.error.AttributeFilterNotAllowedException;
+import it.rebyte.catalog.error.InvalidSortException;
 import it.rebyte.catalog.search.ListingSearchService;
 
 /** Public filtered search and category browsing endpoints. */
@@ -38,9 +39,10 @@ public class SearchController {
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(defaultValue = "0") int offset,
             @RequestParam(defaultValue = "0") int size,
+            @RequestParam(required = false) String sort,
             @RequestParam MultiValueMap<String, String> parameters) {
         return listingSearchService.search(request(
-                q, categoryId, listingType, minPrice, maxPrice, offset, size, parameters));
+                q, categoryId, listingType, minPrice, maxPrice, offset, size, sort, parameters));
     }
 
     @GetMapping("/categories/{categoryId}/listings")
@@ -48,14 +50,15 @@ public class SearchController {
             @PathVariable String categoryId,
             @RequestParam(defaultValue = "0") int offset,
             @RequestParam(defaultValue = "0") int size,
+            @RequestParam(required = false) String sort,
             @RequestParam MultiValueMap<String, String> parameters) {
         return listingSearchService.search(request(
-                null, categoryId, null, null, null, offset, size, parameters));
+                null, categoryId, null, null, null, offset, size, sort, parameters));
     }
 
     private SearchRequest request(String query, String categoryId, ListingType listingType,
             BigDecimal minimumPrice, BigDecimal maximumPrice, int offset, int size,
-            MultiValueMap<String, String> parameters) {
+            String sort, MultiValueMap<String, String> parameters) {
         Map<String, MutableAttributeFilter> mutable = new LinkedHashMap<>();
         parameters.forEach((key, values) -> {
             if (!key.startsWith(ATTRIBUTE_PREFIX) || values.isEmpty()) {
@@ -87,7 +90,18 @@ public class SearchController {
             attributes.put(name, new AttributeFilter(filter.value, filter.minimum, filter.maximum));
         });
         return new SearchRequest(query, categoryId, listingType, minimumPrice, maximumPrice,
-                attributes, offset, size);
+                attributes, offset, size, parseSort(sort));
+    }
+
+    private static SearchRequest.Sort parseSort(String sort) {
+        if (sort == null) {
+            return null;
+        }
+        return switch (sort) {
+            case "newest" -> SearchRequest.Sort.NEWEST;
+            case "oldest" -> SearchRequest.Sort.OLDEST;
+            default -> throw new InvalidSortException("sort must be newest or oldest");
+        };
     }
 
     private static final class MutableAttributeFilter {

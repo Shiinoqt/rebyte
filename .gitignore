@@ -79,6 +79,11 @@ Thumbs.db
 .agents/*
 !.agents/skills/
 
+### Local agent instructions ###
+# Personal instruction overrides stay on this machine.
+CLAUDE.local.md
+AGENTS.override.md
+
 ### Local credentials and caches ###
 .env.*
 !.env.example

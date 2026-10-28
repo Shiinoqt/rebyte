@@ -126,41 +126,6 @@ label {
   align-items: center;
   gap: var(--space-sm);
 }
-select {
-  width: 160px;
-  min-height: var(--hit-min);
-  max-width: 100%;
-  padding: var(--space-sm);
-  border: 1px solid var(--border-control);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  border-radius: var(--radius-md);
-}
-.status-filter {
-  position: relative;
-  display: inline-block;
-  width: 160px;
-  max-width: 100%;
-}
-.status-filter select {
-  appearance: none;
-  padding-inline-end: calc(16px + var(--space-md) * 2);
-}
-.status-filter svg {
-  position: absolute;
-  inset-inline-end: var(--space-md);
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
 @media (max-width: 600px) {
   .row-heading {
     grid-template-columns: minmax(0, 1fr) auto;

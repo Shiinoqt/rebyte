@@ -93,6 +93,11 @@ function routeStep(value: unknown): AuthRouteStep {
             >
           </nav>
         }
+        @if (step() === 'signup') {
+          <p class="lead" id="auth-demo-note">
+            This is a demo. New accounts and everything they create are deleted every week.
+          </p>
+        }
         @if (step() === 'choose-username') {
           <p class="lead">
             Someone else claimed <strong>&#64;{{ flow.takenName() }}</strong> while you were

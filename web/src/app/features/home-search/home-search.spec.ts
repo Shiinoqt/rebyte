@@ -508,7 +508,7 @@ describe('home and search (S2)', () => {
     function phone(matches: boolean, compact = matches) {
       const listeners = new Map<string, (event: MediaQueryListEvent) => void>();
       window.matchMedia = vi.fn((query: string) => ({
-        matches: query.includes('440') ? compact : matches && query.includes('640'),
+        matches: query.includes('560') ? compact : matches && query.includes('640'),
         media: query,
         addEventListener: vi.fn((_, listener) => listeners.set(query, listener)),
         removeEventListener: vi.fn((_, listener) => {
@@ -518,7 +518,7 @@ describe('home and search (S2)', () => {
       return (phoneMatches: boolean, compactMatches: boolean) => {
         for (const [query, listener] of listeners) {
           listener({
-            matches: query.includes('440') ? compactMatches : phoneMatches,
+            matches: query.includes('560') ? compactMatches : phoneMatches,
           } as MediaQueryListEvent);
         }
       };
@@ -573,6 +573,69 @@ describe('home and search (S2)', () => {
     function url() {
       return decodeURIComponent(TestBed.inject(Router).url);
     }
+
+    describe('sort', () => {
+      function sortTrigger() {
+        return root().querySelector<HTMLButtonElement>('app-menu-select > button')!;
+      }
+
+      function choose(label: string) {
+        sortTrigger().click();
+        harness.detectChanges();
+        Array.from(root().querySelectorAll<HTMLButtonElement>('app-menu-select [data-row]'))
+          .find((row) => row.textContent?.trim() === label)!
+          .click();
+        harness.detectChanges();
+      }
+
+      it('sends the sort from a shared URL on the first request', async () => {
+        const request = await openWithFilters('/?sort=newest');
+        expect(request.params.get('sort')).toBe('newest');
+        expect(sortTrigger().textContent).toContain('Most recent');
+      });
+
+      it('opens a menu that marks the current sort and closes on Escape', async () => {
+        await openWithFilters('/?sort=oldest');
+        const trigger = sortTrigger();
+        trigger.click();
+        harness.detectChanges();
+        expect(trigger.getAttribute('aria-expanded')).toBe('true');
+        const current = root().querySelector<HTMLButtonElement>('app-menu-select [aria-current="true"]')!;
+        expect(current.textContent?.trim()).toBe('Oldest');
+        current.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        harness.detectChanges();
+        expect(trigger.getAttribute('aria-expanded')).toBe('false');
+        expect(root().querySelector('app-menu-select [data-row]')).toBeNull();
+      });
+
+      it('writes the chosen sort to the URL, sends it from offset 0, and Relevance removes it', async () => {
+        await openWithFilters('/?q=gpu');
+        expect(sortTrigger().textContent).toContain('Relevance');
+
+        choose('Oldest');
+        const oldest = await respond(page(['a'], 1));
+        expect(url()).toBe('/?q=gpu&sort=oldest');
+        expect(oldest.params.get('sort')).toBe('oldest');
+        expect(oldest.params.get('offset')).toBe('0');
+
+        choose('Relevance');
+        const relevance = await respond(page(['a'], 1));
+        expect(url()).toBe('/?q=gpu');
+        expect(relevance.params.has('sort')).toBe(false);
+      });
+
+      it('keeps the sort when Clear removes the filters', async () => {
+        await openWithFilters('/?type=HARDWARE&sort=newest');
+        const clear = Array.from(root().querySelectorAll<HTMLButtonElement>('button')).find(
+          (button) => button.textContent?.trim() === 'Clear',
+        )!;
+        clear.click();
+        const cleared = await respond(page(['a'], 1));
+        expect(url()).toBe('/?sort=newest');
+        expect(cleared.params.get('sort')).toBe('newest');
+        expect(cleared.params.has('listingType')).toBe(false);
+      });
+    });
 
     describe('price control', () => {
       it('shows an active range on the compact trigger and opens the existing slider control', async () => {
@@ -902,6 +965,7 @@ describe('home and search (S2)', () => {
           'app-segmented-control',
           'app-category-picker',
           'app-price-control',
+          'app-menu-select',
           'button',
         ]);
         const trigger = root().querySelector<HTMLButtonElement>('app-category-picker > button')!;
@@ -1190,11 +1254,209 @@ describe('home and search (S2)', () => {
         await settle();
 
         const category = root().querySelector('app-category-picker')!;
-        expect(category.textContent).toContain('Choose a type first.');
+        const buttons = category.querySelectorAll('button');
+        expect(buttons).toHaveLength(1);
+        expect(buttons[0].disabled).toBe(true);
+        expect(buttons[0].textContent).toContain('Choose a type first');
+        expect(buttons[0].getAttribute('aria-expanded')).toBe('false');
         expect(category.querySelectorAll('[data-row]')).toHaveLength(0);
-        expect(category.querySelector('button')).toBeNull();
         expect(root().querySelectorAll('.phone-row app-segmented-control')).toHaveLength(0);
         expect(root().querySelectorAll('[role="dialog"] app-segmented-control')).toHaveLength(1);
+      });
+
+      it('collapses Category to a row that expands, filters, selects a parent and collapses again', async () => {
+        phone(true, false);
+        await openWithFilters('/?type=HARDWARE');
+        root().querySelector<HTMLButtonElement>('button.filters-button')!.click();
+        harness.detectChanges();
+        await settle();
+
+        const picker = root().querySelector('app-category-picker')!;
+        const trigger = picker.querySelector<HTMLButtonElement>('button')!;
+        const rows = () => Array.from(picker.querySelectorAll<HTMLElement>('[data-row]'));
+        const names = () => rows().map((row) => row.textContent?.trim().split('·')[0].trim());
+        expect(trigger.textContent).toContain('All categories');
+        expect(trigger.getAttribute('aria-expanded')).toBe('false');
+        expect(trigger.hasAttribute('aria-haspopup')).toBe(false);
+        expect(rows()).toHaveLength(0);
+
+        trigger.click();
+        harness.detectChanges();
+        await settle();
+        expect(trigger.getAttribute('aria-expanded')).toBe('true');
+        expect(names()).toEqual(['All categories', 'Components', 'Graphics cards', 'Processors', 'Monitors']);
+        const filter = picker.querySelector<HTMLInputElement>('input.filter')!;
+        expect(document.activeElement).toBe(rows()[0]);
+        expect(document.activeElement).not.toBe(filter);
+
+        type(filter, 'comp');
+        expect(rows()).toHaveLength(3);
+        expect(rows()[0].textContent?.trim().startsWith('Components')).toBe(true);
+        expect(names()).not.toContain('Monitors');
+        press(filter, 'ArrowDown');
+        expect(document.activeElement).toBe(rows()[0]);
+
+        press(rows()[0], 'Escape');
+        harness.detectChanges();
+        expect(rows()).toHaveLength(0);
+        expect(root().querySelector('[role="dialog"]')).not.toBeNull();
+        expect(document.activeElement).toBe(trigger);
+
+        trigger.click();
+        harness.detectChanges();
+        await settle();
+        type(picker.querySelector<HTMLInputElement>('input.filter')!, 'comp');
+        rows()[0].click();
+        await respond(page(['a'], 1));
+        expect(url()).toBe('/?cat=components&type=HARDWARE');
+        expect(trigger.textContent).toContain('Components');
+        expect(rows()).toHaveLength(0);
+        expect(root().querySelector('[role="dialog"]')).not.toBeNull();
+      });
+
+      it('sorts from the pill in the phone row and keeps Sort by out of the sheet', async () => {
+        phone(true);
+        await openWithFilters('/?q=gpu');
+        const pill = root().querySelector<HTMLButtonElement>('.phone-row app-menu-select > button')!;
+        expect(pill.textContent).toContain('Sort by');
+        expect(pill.textContent).toContain('Relevance');
+        expect(root().querySelector('.filters-button [data-ui="count-badge"]')?.textContent?.trim()).toBe('');
+
+        pill.click();
+        harness.detectChanges();
+        Array.from(root().querySelectorAll<HTMLButtonElement>('.phone-row app-menu-select [data-row]'))
+          .find((row) => row.textContent?.trim() === 'Oldest')!
+          .click();
+        const oldest = await respond(page(['a'], 1));
+        expect(url()).toBe('/?q=gpu&sort=oldest');
+        expect(oldest.params.get('sort')).toBe('oldest');
+        expect(oldest.params.get('offset')).toBe('0');
+
+        root().querySelector<HTMLButtonElement>('button.filters-button')!.click();
+        harness.detectChanges();
+        await settle();
+        expect(root().querySelector('[role="dialog"] .sheet-body h3')?.textContent?.trim()).not.toBe('Sort by');
+        expect(root().querySelector('.sort-options')).toBeNull();
+      });
+
+      describe('active filter chips', () => {
+        const FULL =
+          '/?type=HARDWARE&cat=gpus&min=50&max=500&attr.interface=PCIe&attr.vram_gb.min=8&attr.vram_gb.max=16&attr.ecc=true&sort=newest';
+
+        function chips() {
+          return Array.from(root().querySelectorAll<HTMLButtonElement>('.chips .chip'));
+        }
+
+        function chipNamed(label: string) {
+          return chips().find((chip) => chip.getAttribute('aria-label') === label)!;
+        }
+
+        it('renders one chip per active filter, matching the Filters badge, and none for sort', async () => {
+          phone(true, false);
+          await openWithFilters(FULL);
+          expect(chips().map((chip) => chip.textContent?.trim())).toEqual([
+            'Hardware',
+            'Graphics cards',
+            '€50–€500',
+            'Interface: PCIe',
+            'Vram gb: 8–16 GB',
+            'Ecc: Yes',
+          ]);
+          expect(chips().map((chip) => chip.getAttribute('aria-label'))).toEqual([
+            'Remove Hardware filter',
+            'Remove Graphics cards filter',
+            'Remove €50–€500 filter',
+            'Remove Interface: PCIe filter',
+            'Remove Vram gb: 8–16 GB filter',
+            'Remove Ecc: Yes filter',
+          ]);
+          expect(
+            root().querySelector('.filters-button [data-ui="count-badge"]')?.textContent?.trim(),
+          ).toBe('6');
+          expect(root().querySelector('.chips')?.getAttribute('aria-label')).toBe('Active filters');
+          expect(chips().some((chip) => /recent|oldest/i.test(chip.textContent ?? ''))).toBe(false);
+        });
+
+        it('labels single values and open-ended ranges', async () => {
+          phone(true, false);
+          await openWithFilters('/?cat=gpus&type=HARDWARE&attr.cuda_cores=5000&attr.vram_gb.min=8');
+          expect(chips().map((chip) => chip.textContent?.trim())).toEqual([
+            'Hardware',
+            'Graphics cards',
+            'Cuda cores: 5000',
+            'Vram gb: 8+ GB',
+          ]);
+        });
+
+        it('removes the price, an enum attribute and a range attribute like their controls do', async () => {
+          phone(true, false);
+          await openWithFilters(FULL);
+
+          chipNamed('Remove €50–€500 filter').click();
+          const noPrice = await respond(page(['a'], 1, 0, { facets }));
+          expect(url()).not.toMatch(/[?&]min=/);
+          expect(url()).not.toMatch(/[?&]max=/);
+          expect(noPrice.params.has('minPrice')).toBe(false);
+          expect(noPrice.params.has('maxPrice')).toBe(false);
+
+          chipNamed('Remove Interface: PCIe filter').click();
+          const noInterface = await respond(page(['a'], 1, 0, { facets }));
+          expect(url()).not.toContain('attr.interface');
+          expect(noInterface.params.has('attr.interface')).toBe(false);
+
+          chipNamed('Remove Vram gb: 8–16 GB filter').click();
+          await respond(page(['a'], 1, 0, { facets }));
+          expect(url()).not.toContain('attr.vram_gb');
+          expect(url()).toContain('attr.ecc=true');
+        });
+
+        it('removing the category drops its attributes but keeps type, price and sort', async () => {
+          phone(true, false);
+          await openWithFilters(FULL);
+          chipNamed('Remove Graphics cards filter').click();
+          const request = await respond(page(['a'], 1));
+          expect(url()).toBe('/?type=HARDWARE&min=50&max=500&sort=newest');
+          expect(request.params.has('categoryId')).toBe(false);
+        });
+
+        it('removing the type drops category and attributes too', async () => {
+          phone(true, false);
+          await openWithFilters(FULL);
+          chipNamed('Remove Hardware filter').click();
+          const request = await respond(page(['a'], 1));
+          expect(url()).toBe('/?min=50&max=500&sort=newest');
+          expect(request.params.has('listingType')).toBe(false);
+          expect(request.params.has('categoryId')).toBe(false);
+        });
+
+        it('moves focus to the next chip after a removal, then to Filters when none remain', async () => {
+          phone(true);
+          await openWithFilters('/?type=HARDWARE&min=50');
+          expect(chips().map((chip) => chip.textContent?.trim())).toEqual(['Hardware', '€50+']);
+
+          chipNamed('Remove Hardware filter').click();
+          await respond(page(['a'], 1));
+          expect(document.activeElement).toBe(chipNamed('Remove €50+ filter'));
+
+          chipNamed('Remove €50+ filter').click();
+          await respond(page(['a'], 1));
+          expect(document.activeElement).toBe(
+            root().querySelector<HTMLButtonElement>('button.filters-button'),
+          );
+        });
+
+        it('renders no chip list for a sort-only URL', async () => {
+          phone(true);
+          await openWithFilters('/?sort=newest');
+          expect(root().querySelector('.chips')).toBeNull();
+        });
+
+        it('renders no chips on desktop', async () => {
+          phone(false);
+          await openWithFilters(FULL);
+          expect(root().querySelector('.chips')).toBeNull();
+          expect(root().querySelector('button[aria-label^="Remove"]')).toBeNull();
+        });
       });
 
       it('shows only Filters on compact phones and moves type controls as the viewport resizes', async () => {
@@ -1205,7 +1467,7 @@ describe('home and search (S2)', () => {
           Array.from(root().querySelector('.phone-row')!.children).map((child) =>
             child.tagName.toLowerCase(),
           ),
-        ).toEqual(['button']);
+        ).toEqual(['app-menu-select', 'button']);
         expect(root().querySelector('.phone-row app-segmented-control')).toBeNull();
 
         trigger.click();
@@ -1242,7 +1504,7 @@ describe('home and search (S2)', () => {
           Array.from(root().querySelector('.phone-row')!.children).map((child) =>
             child.tagName.toLowerCase(),
           ),
-        ).toEqual(['app-segmented-control', 'button']);
+        ).toEqual(['app-segmented-control', 'app-menu-select', 'button']);
 
         trigger.click();
         harness.detectChanges();
@@ -1251,11 +1513,12 @@ describe('home and search (S2)', () => {
         expect(sheet.getAttribute('aria-modal')).toBe('true');
         expect(sheet.querySelector('h2')?.textContent).toBe('Filters');
         expect(sheet.querySelector('app-category-picker')).not.toBeNull();
+        expect(sheet.querySelectorAll('app-category-picker [data-row]')).toHaveLength(0);
         expect(
-          Array.from(sheet.querySelectorAll('.sheet-body > section')).map((section) =>
-            section.querySelector('h3')?.textContent?.trim(),
+          Array.from(sheet.querySelectorAll('.sheet-body h3')).map((heading) =>
+            heading.textContent?.trim(),
           ),
-        ).toEqual(['Category']);
+        ).toEqual(['Category', 'Price']);
         expect(sheet.querySelector('[aria-label="Listing type"]')).toBeNull();
         expect(sheet.querySelectorAll('[role="slider"]')).toHaveLength(0);
         expect(sheet.querySelectorAll('input[aria-label$="price in euros"]')).toHaveLength(2);

@@ -380,6 +380,17 @@ describe('auth screens', () => {
       expect(root().textContent).not.toMatch(/google|continue with/i);
     });
 
+    it('tells new users that demo accounts are deleted weekly, only on sign-up', async () => {
+      await open('/signup');
+      expect(root().querySelector('#auth-demo-note')?.textContent?.trim()).toBe(
+        'This is a demo. New accounts and everything they create are deleted every week.',
+      );
+      await harness.navigateByUrl('/login');
+      harness.detectChanges();
+      expect(heading()).toBe('Log in');
+      expect(root().querySelector('#auth-demo-note')).toBeNull();
+    });
+
     it.each(['login', 'signup', 'confirm', 'forgot'])(
       'redirects a signed-in user away from /%s',
       async (path) => {

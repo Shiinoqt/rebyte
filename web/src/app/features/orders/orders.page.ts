@@ -14,7 +14,7 @@ import { OrderApi } from '../../core/api/order-api';
 import { OrderStatus, OrderView } from '../../core/api/api-models';
 import { AuthStore } from '../../core/auth/auth.store';
 import { EmptyState, ErrorState, Skeleton } from '../../shared/ui/feedback';
-import { SegmentedControl } from '../../shared/ui/navigation';
+import { MenuSelect, SegmentedControl, SelectionOption } from '../../shared/ui/navigation';
 import { reloadThroughAnchor, startAccountAutoReload } from '../profile/account-auto-reload';
 import { EurPipe, StatusChip } from '../../shared/ui/content';
 import { STATUS_LABEL, lifecycleActions } from '../order-detail/order-detail.service';
@@ -48,6 +48,7 @@ const emptyState = (): State => ({
     ErrorState,
     Skeleton,
     SegmentedControl,
+    MenuSelect,
     EurPipe,
     StatusChip,
   ],
@@ -62,19 +63,13 @@ const emptyState = (): State => ({
         (selectedChange)="selectRole($event)"
       />
     </div>
-    <span class="status-filter">
-      <select
-        aria-label="Filter loaded orders by status"
-        [value]="status()"
-        (change)="status.set($any($event.target).value)"
-      >
-        <option value="">All</option>
-        @for (value of statuses(); track value) {
-          <option [value]="value">{{ labels[value] }}</option>
-        }
-      </select>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-    </span>
+    <app-menu-select
+      label="Status"
+      name="Filter loaded orders by status"
+      [options]="statusOptions()"
+      [selected]="status()"
+      (selectedChange)="status.set($any($event))"
+    />
     @if (state().loading) {
       <app-skeleton label="Loading orders" />
     }
@@ -160,6 +155,10 @@ export class OrdersPage {
       ]),
     ];
   });
+  readonly statusOptions = computed<readonly SelectionOption[]>(() => [
+    { value: '', label: 'All' },
+    ...this.statuses().map((value) => ({ value, label: STATUS_LABEL[value] })),
+  ]);
   constructor() {
     const stopReload = startAccountAutoReload(this.destroyRef, () => this.autoReload());
     const unregister = this.auth.registerCleanup(() => {

@@ -110,6 +110,82 @@ describe('account order and offer workflows', () => {
     expect(root.querySelector('app-empty-state')).toBeNull();
     expect(root.querySelector('p.muted')?.textContent).toBe('No matching loaded offers');
   });
+  function statusPill(root: HTMLElement) {
+    const trigger = root.querySelector<HTMLButtonElement>('app-menu-select > button')!;
+    return {
+      trigger,
+      open: () => trigger.click(),
+      rows: () =>
+        Array.from(root.querySelectorAll<HTMLButtonElement>('app-menu-select [data-row]')),
+    };
+  }
+  it('filters loaded orders through the status pill', async () => {
+    setup({
+      purchases: () =>
+        of({
+          items: [order('o1', { status: 'PAID' }), order('o2', { status: 'SHIPPED' })],
+          nextCursor: null,
+        }),
+    });
+    const fixture = TestBed.createComponent(OrdersPage);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const pill = statusPill(root);
+    expect(root.querySelector('select')).toBeNull();
+    expect(pill.trigger.textContent).toContain('Status');
+    expect(pill.trigger.textContent).toContain('All');
+    expect(pill.trigger.getAttribute('aria-label')).toBe('Filter loaded orders by status: All');
+
+    pill.open();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(pill.rows().map((row) => row.textContent?.trim())).toEqual(['All', 'Paid', 'Shipped']);
+    pill.rows()[2].click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.status()).toBe('SHIPPED');
+    expect(root.querySelectorAll('article.account-row')).toHaveLength(1);
+    expect(root.querySelector('article.account-row')?.getAttribute('data-order')).toBe('o2');
+    expect(pill.trigger.getAttribute('aria-label')).toBe('Filter loaded orders by status: Shipped');
+
+    pill.open();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    pill.rows()[0].click();
+    fixture.detectChanges();
+    expect(root.querySelectorAll('article.account-row')).toHaveLength(2);
+  });
+  it('filters loaded offers through the status pill', async () => {
+    setup({
+      receivedOffers: () =>
+        of({
+          items: [offer('PENDING'), { ...offer('REJECTED'), id: 'offer-2' }],
+          nextCursor: null,
+        }),
+    });
+    const fixture = TestBed.createComponent(OffersPage);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const pill = statusPill(root);
+    expect(root.querySelector('select')).toBeNull();
+    expect(pill.trigger.getAttribute('aria-label')).toBe('Filter loaded offers by status: All');
+
+    pill.open();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(pill.rows().map((row) => row.textContent?.trim())).toEqual([
+      'All',
+      'Pending',
+      'Accepted',
+      'Declined',
+      'Expired',
+      'Withdrawn',
+    ]);
+    pill.rows()[3].click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.status()).toBe('REJECTED');
+    expect(root.querySelectorAll('article.account-row')).toHaveLength(1);
+    expect(root.querySelector('article.account-row')?.getAttribute('data-offer')).toBe('offer-2');
+  });
   it.each([
     ['sent', 1, 0],
     ['other', 0, 1],

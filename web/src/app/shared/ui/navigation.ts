@@ -4,6 +4,8 @@ import {
   DestroyRef,
   Directive,
   ElementRef,
+  Injector,
+  afterNextRender,
   afterRenderEffect,
   computed,
   inject,
@@ -275,4 +277,215 @@ export class IconButton {
   readonly reason = input('');
   readonly activated = output<void>();
   readonly reasonId = `icon-button-reason-${nextControlId++}`;
+}
+
+@Component({
+  selector: 'app-menu-select',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    'data-ui': 'menu-select',
+    '[class.with-icon]': '!!icon()',
+    '[class.end]': 'align() === "end"',
+    '(document:click)': 'outside($event)',
+    '(keydown)': 'keydown($event)',
+  },
+  styles: `
+    :host {
+      position: relative;
+      display: inline-block;
+    }
+    button {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      width: 100%;
+      min-height: max(var(--control-md), 44px);
+      padding: var(--space-sm) var(--space-md);
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      text-align: left;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    button:hover {
+      background: var(--surface-hover);
+    }
+    button:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+    .trigger {
+      padding-block: 0;
+      border-color: var(--border);
+      border-radius: var(--radius-pill);
+      background: var(--surface);
+      font-weight: var(--weight-semibold);
+    }
+    .trigger[aria-expanded='true'] {
+      border-color: var(--primary);
+    }
+    .trigger-label {
+      color: var(--text-muted);
+    }
+    :host(.with-icon) .trigger-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .popover {
+      position: absolute;
+      top: calc(100% + var(--space-sm));
+      left: 0;
+      z-index: var(--z-dropdown);
+      min-width: 100%;
+      margin: 0;
+      padding: var(--space-sm);
+      list-style: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow-md);
+    }
+    /* A pill at the left of its row opens rightwards so the menu stays on screen; a pill at the right edge opens leftwards. */
+    :host(.end) .popover {
+      left: auto;
+      right: 0;
+    }
+    .selected {
+      background: var(--surface-selected);
+      font-weight: var(--weight-semibold);
+    }
+    svg {
+      flex: none;
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  `,
+  template: `
+    <button
+      #trigger
+      type="button"
+      class="trigger"
+      aria-haspopup="true"
+      [attr.aria-expanded]="open()"
+      [attr.aria-label]="name() ? name() + ': ' + current() : null"
+      (click)="toggle()"
+    >
+      @if (icon()) {
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="icon()" /></svg>
+      }
+      <span class="trigger-label">{{ label() }}</span>
+      <span>{{ current() }}</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+    </button>
+    @if (open()) {
+      <ul class="popover" role="group" [attr.aria-label]="name() || label()">
+        @for (option of options(); track option.value) {
+          <li>
+            <button
+              type="button"
+              data-row
+              [class.selected]="selected() === option.value"
+              [attr.aria-current]="selected() === option.value ? 'true' : null"
+              (click)="choose(option.value)"
+            >
+              {{ option.label }}
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  `,
+})
+export class MenuSelect {
+  readonly label = input.required<string>();
+  readonly options = input.required<readonly SelectionOption[]>();
+  readonly selected = input('');
+  readonly name = input('');
+  readonly icon = input('');
+  readonly align = input<'start' | 'end'>('start');
+  readonly selectedChange = output<string>();
+
+  protected readonly open = signal(false);
+  protected readonly current = computed(
+    () =>
+      (this.options().find((option) => option.value === this.selected()) ?? this.options()[0])
+        ?.label ?? '',
+  );
+
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+  private readonly trigger = viewChild<ElementRef<HTMLButtonElement>>('trigger');
+
+  protected toggle(): void {
+    if (this.open()) {
+      this.open.set(false);
+      return;
+    }
+    this.open.set(true);
+    afterNextRender(
+      () =>
+        (
+          this.host.nativeElement.querySelector<HTMLElement>('.selected') ??
+          this.host.nativeElement.querySelector<HTMLElement>('[data-row]')
+        )?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  protected choose(value: string): void {
+    this.selectedChange.emit(value);
+    this.close();
+  }
+
+  protected outside(event: MouseEvent): void {
+    if (this.open() && event.target instanceof Node && !this.host.nativeElement.contains(event.target)) {
+      this.open.set(false);
+    }
+  }
+
+  protected keydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.open()) {
+      event.stopPropagation();
+      this.close();
+      return;
+    }
+    const rows = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('[data-row]'));
+    const index = rows.indexOf(event.target as HTMLElement);
+    if (index < 0) return;
+    switch (event.key) {
+      case 'ArrowDown':
+        rows[(index + 1) % rows.length].focus();
+        break;
+      case 'ArrowUp':
+        rows[(index - 1 + rows.length) % rows.length].focus();
+        break;
+      case 'Home':
+        rows[0].focus();
+        break;
+      case 'End':
+        rows[rows.length - 1].focus();
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+  }
+
+  private close(): void {
+    this.open.set(false);
+    this.trigger()?.nativeElement.focus();
+  }
 }
