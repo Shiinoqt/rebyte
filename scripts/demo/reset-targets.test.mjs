@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fixtureTargets, observedTargets } from './fixtures/reset-fixture.mjs';
-import { validateTargets, validateOrigins, reviewFingerprint, verifyApproval, acquireResetLock, withResetLock, seedRequest, createResetReview, requireApprovedReset, WRITERS, PROTECTED } from './reset-targets.mjs';
+import { validateTargets, validateOrigins, reviewFingerprint, TARGET_FINGERPRINTS, verifyApproval, acquireResetLock, withResetLock, seedRequest, createResetReview, requireApprovedReset, WRITERS, PROTECTED } from './reset-targets.mjs';
 
 test('exact targets and independently observed four accounts pass', () => {
   assert.equal(validateTargets(fixtureTargets(), observedTargets()).environment, 'demo');
@@ -33,6 +33,22 @@ for (const [name, mutate] of Object.entries({
   let writes = 0;
   assert.throws(() => { validateTargets(config, observedTargets()); writes++; });
   assert.equal(writes, 0);
+});
+
+test('refuses a shape-valid target block outside the allowlist', () => {
+  const config = fixtureTargets();
+  config.aws.accountId = '111122223333';
+  config.aws.bucket = 'rebyte-demo-media-111122223333';
+  config.aws.sesQueueArn = 'arn:aws:sqs:eu-south-1:111122223333:rebyte-demo-ses-events-messaging';
+  const observed = observedTargets(); observed.targets = structuredClone(config);
+  assert.throws(() => validateTargets(config, observed), /Demo target or preserved-account verification refused/);
+});
+test('target allowlist holds two distinct SHA-256 fingerprints including the fixture', () => {
+  const { preservedSubjects, ...fixture } = fixtureTargets();
+  assert.equal(TARGET_FINGERPRINTS.length, 2);
+  for (const fingerprint of TARGET_FINGERPRINTS) assert.match(fingerprint, /^[a-f0-9]{64}$/);
+  assert.notEqual(TARGET_FINGERPRINTS[0], TARGET_FINGERPRINTS[1]);
+  assert.ok(TARGET_FINGERPRINTS.includes(reviewFingerprint(fixture)));
 });
 
 for (const role of ['buyer', 'seller', 'developer']) test(`refuses public ${role} ADMIN`, () => {

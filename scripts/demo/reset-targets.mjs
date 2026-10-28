@@ -8,7 +8,8 @@ export const PUBLIC_ORIGIN = 'https://api.rebyte.tech';
 export const SEED_ORIGIN = 'http://api-gateway:8080';
 export const WRITERS = ['api-gateway', 'user-service', 'catalog-service', 'order-service', 'payment-service', 'messaging-service'];
 export const PROTECTED = ['discovery-server', 'mysql-app', 'redis', 'rabbitmq', 'meilisearch', 'demo-runner'];
-const resource = 'fakebackendresource00000';
+// Pins the demo targets without publishing them: SHA-256 of the canonical target block without preservedSubjects.
+export const TARGET_FINGERPRINTS = Object.freeze(['5c1f82799d41eed8c7e2afb6c9b2335d819c2cc1ac5b332ad564c54f7bd59e71', 'c0d15607f0d13b3e8b49c3f4cb02ce7fc99f253f18f4ce57d79be5c7fc7348c8']);
 const roles = ['buyer', 'seller', 'developer', 'admin'];
 const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 const sha256 = value => createHash('sha256').update(value).digest('hex');
@@ -16,14 +17,31 @@ const sha256 = value => createHash('sha256').update(value).digest('hex');
 export function validateTargets(config, observedIdentities, allowPublicRepair = false) {
   try {
     assert.equal(typeof allowPublicRepair, 'boolean');
-    assert.deepEqual(config, {
-      environment: 'demo',
-      aws: { accountId: '000000000000', region: 'eu-south-1', poolId: 'eu-south-1_tG4BJNs2r', clientId: '1fvpct0cb1ui35rhmp54qesrrf', bucket: 'rebyte-demo-media-000000000000', cdnDistributionId: 'E000000000FAKE', iamUsers: { user: 'rebyte-demo-user-service', catalog: 'rebyte-demo-catalog-service', messaging: 'rebyte-demo-messaging-service' }, sesQueueArn: 'arn:aws:sqs:eu-south-1:000000000000:rebyte-demo-ses-events-messaging' },
-      atlas: { cluster: 'rebyte-dev', databases: { catalog: 'catalog_demo', messaging: 'messaging_demo' }, users: { catalog: 'catalog-demo', messaging: 'messaging-demo' } },
-      stores: { mysqlResource: `${resource}-mysql-data`, mysqlSchemas: ['user_demo', 'order_demo', 'payment_demo'], redisResource: `${resource}-redis-data`, rabbitResource: `${resource}-rabbitmq-data`, searchResource: `${resource}-meili-data` },
-      coolify: { serverId: 'fakecoolifyserver0000000', backendResourceId: resource, frontendResourceId: 'fakefrontendresource0000', network: `${resource}-backend` },
-      preservedSubjects: config.preservedSubjects,
-    });
+    const keys = value => Object.keys(value).sort();
+    const { preservedSubjects, ...rest } = config;
+    assert.deepEqual(keys(config), ['aws', 'atlas', 'coolify', 'environment', 'preservedSubjects', 'stores'].sort());
+    const { aws, atlas, stores, coolify } = config;
+    assert.deepEqual(keys(aws), ['accountId', 'region', 'poolId', 'clientId', 'bucket', 'cdnDistributionId', 'iamUsers', 'sesQueueArn'].sort());
+    assert.deepEqual(keys(stores), ['mysqlResource', 'mysqlSchemas', 'redisResource', 'rabbitResource', 'searchResource'].sort());
+    assert.deepEqual(keys(coolify), ['serverId', 'backendResourceId', 'frontendResourceId', 'network'].sort());
+    assert.equal(config.environment, 'demo');
+    assert.match(aws.accountId, /^\d{12}$/);
+    assert.equal(aws.region, 'eu-south-1');
+    assert.match(aws.poolId, /^eu-south-1_[A-Za-z0-9]+$/);
+    assert.match(aws.clientId, /^[a-z0-9]+$/);
+    assert.match(aws.cdnDistributionId, /^E[A-Z0-9]+$/);
+    assert.equal(aws.bucket, `rebyte-demo-media-${aws.accountId}`);
+    assert.equal(aws.sesQueueArn, `arn:aws:sqs:eu-south-1:${aws.accountId}:rebyte-demo-ses-events-messaging`);
+    assert.deepEqual(aws.iamUsers, { user: 'rebyte-demo-user-service', catalog: 'rebyte-demo-catalog-service', messaging: 'rebyte-demo-messaging-service' });
+    assert.deepEqual(atlas, { cluster: 'rebyte-dev', databases: { catalog: 'catalog_demo', messaging: 'messaging_demo' }, users: { catalog: 'catalog-demo', messaging: 'messaging-demo' } });
+    const ids = [coolify.serverId, coolify.backendResourceId, coolify.frontendResourceId];
+    for (const id of ids) assert.match(id, /^[a-z0-9]{24}$/);
+    assert.equal(new Set(ids).size, 3);
+    const resource = coolify.backendResourceId;
+    assert.equal(coolify.network, `${resource}-backend`);
+    assert.deepEqual(stores, { mysqlResource: `${resource}-mysql-data`, mysqlSchemas: ['user_demo', 'order_demo', 'payment_demo'], redisResource: `${resource}-redis-data`, rabbitResource: `${resource}-rabbitmq-data`, searchResource: `${resource}-meili-data` });
+    assert.doesNotMatch(JSON.stringify(rest), /replace|placeholder|example|localhost|127\.0\.0\.1|(unknown|pending|tbd|todo)|[<>]/i);
+    assert.ok(TARGET_FINGERPRINTS.includes(reviewFingerprint(rest)));
     assert.deepEqual(Object.keys(config.preservedSubjects).sort(), [...roles].sort());
     const subjects = Object.values(config.preservedSubjects);
     assert.ok(subjects.every(value => typeof value === 'string' && uuid.test(value)) && new Set(subjects).size === 4);
