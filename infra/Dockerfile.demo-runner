@@ -9,7 +9,7 @@ FROM mongo@sha256:1f995ad6fdb93244a1addab1b58f934a0bc2f5643c38e02f5e9d7f0c7d227a
 FROM redis@sha256:4fa24486b8bcca8eec45ee0eb166edc674795e53a2b53d1a9ef263eecebaac85 AS redis
 FROM node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
 RUN apt-get update -qq && apt-get install -y --no-install-recommends \
-    openssh-client=1:9.2p1-2+deb12u10 libssl3=3.0.22-1~deb12u1 \
+    openssh-client=1:9.2p1-2+deb12u10 libssl3=3.0.22-1~deb12u2 \
     libncurses6=6.4-4 ca-certificates=20250419~deb12u2 groff-base=1.22.4-10 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=aws /usr/local/aws-cli /usr/local/aws-cli
