@@ -438,8 +438,8 @@ The human provisioning names are `rebyte-ses-events` (SNS),
 IAM user `rebyte-messaging-service`. These are deployment choices from D-36/D-44, not
 hardcoded service resources. Its grants cover private `chat/*` S3 access, SES sending and
 SQS intake. All messaging AWS clients require `MESSAGING_AWS_ACCESS_KEY_ID` and
-`MESSAGING_AWS_SECRET_ACCESS_KEY`, with no shared credential fallback. See the
-[Phase 5 live runbook](phase-05-live-runbook.md) for provisioning and recovery.
+`MESSAGING_AWS_SECRET_ACCESS_KEY`, with no shared credential fallback. Provisioning and
+recovery steps live in the private operations runbook.
 
 ### Cascade deletion across service boundaries
 
