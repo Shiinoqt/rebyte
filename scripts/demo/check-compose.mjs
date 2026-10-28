@@ -118,6 +118,8 @@ export function renderCompose(root, values, { refuse = false } = {}) {
 export function validateModel(model) {
   const runner=model.services['demo-runner'];assert.ok(runner);
   assert.equal(runner.image,model.services['api-gateway'].image.replace('/api-gateway:','/demo-runner:'));
+  // Coolify scheduled tasks exec only into a container named "<service>-<resource uuid>"; raw Compose would name it "<uuid>-<service>-1".
+  assert.equal(runner.container_name,'demo-runner-'+model.networks.backend.name.replace(/-backend$/,''));
   assert.equal(runner.user,'10001:10001');assert.equal(runner.read_only,true);
   assert.deepEqual(runner.environment,{TZ:'Europe/Rome'});
   assert.deepEqual(runner.cap_drop,['ALL']);assert.deepEqual(runner.security_opt,['no-new-privileges:true']);

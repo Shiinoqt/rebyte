@@ -585,6 +585,7 @@
       ]
     },
     "demo-runner": {
+      "container_name": "demo-runner-${DEMO_RESOURCE_ID:?Set DEMO_RESOURCE_ID}",
       "image": "${GHCR_NAMESPACE:?Set GHCR_NAMESPACE}/demo-runner:${DEMO_IMAGE_TAG:?Set DEMO_IMAGE_TAG}",
       "platform": "linux/amd64",
       "restart": "unless-stopped",

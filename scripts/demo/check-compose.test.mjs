@@ -45,6 +45,7 @@ for (const [name, mutate] of Object.entries({
   "runner daemon mount":m=>{m.services['demo-runner'].volumes[0].source='/var/run/docker.sock';},
   "runner root user":m=>{m.services['demo-runner'].user='0:0';},
   "runner public network":m=>{m.services['demo-runner'].networks.proxy={};},
+  "runner default container name":m=>{delete m.services['demo-runner'].container_name;},
   "runner secret environment":m=>{m.services['demo-runner'].environment.AWS_SECRET_ACCESS_KEY='fixture';},
   "implicit build": (m) => {
     m.services["user-service"].build = { context: ".." };
