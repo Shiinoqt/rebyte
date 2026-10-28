@@ -6,6 +6,7 @@ import {
   readFileSync,
   writeFileSync,
   cpSync,
+  existsSync,
   rmSync,
   symlinkSync,
 } from "node:fs";
@@ -13,6 +14,7 @@ import { basename, dirname, join, matchesGlob, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
+import { stageRunnerContext } from "./runner-context.mjs";
 import {
   IMAGE_NAMES,
   prepareContexts,
@@ -56,6 +58,11 @@ function workspace(t) {
     cpSync(join(root, file), join(temp, file));
   mkdirSync(join(temp,'scripts'),{recursive:true});
   cpSync(join(root,'scripts/demo'),join(temp,'scripts/demo'),{recursive:true});
+  const scratch=join(temp,'fingerprint-scratch');
+  const proof=stageRunnerContext(temp,scratch);
+  rmSync(scratch,{recursive:true,force:true});
+  mkdirSync(join(temp,'target/demo-runner-smoke'),{recursive:true});
+  writeFileSync(join(temp,'target/demo-runner-smoke/report.json'),JSON.stringify({recipeContextSha256:proof}));
   writeFileSync(
     join(temp, "web/dist/rebyte-web/browser/index.html"),
     "<html>fixture</html>",
@@ -105,12 +112,12 @@ test('runner artifacts reject private configuration and changed executable bytes
 });
 
 test('RabbitMQ fixture build is mandatory before tooling tests',()=>{
-  const value=workflow();value.jobs.build.steps=value.jobs.build.steps.filter(step=>step.run!=='docker build --tag rebyte/rabbitmq:4.1-delayed infra/rabbitmq');
+  const value=workflow();value.jobs.runner.steps=value.jobs.runner.steps.filter(step=>step.run!=='docker build --tag rebyte/rabbitmq:4.1-delayed infra/rabbitmq');
   assert.throws(()=>validateWorkflow(value,dockerfiles()));
 });
 
-test('runner behavioral smoke is mandatory in the verified build job',()=>{
-  const value=workflow();value.jobs.build.steps=value.jobs.build.steps.filter(step=>step.run!=='node scripts/demo/runner-image-smoke.mjs');
+test('runner behavioral smoke is mandatory in the runner job',()=>{
+  const value=workflow();value.jobs.runner.steps=value.jobs.runner.steps.filter(step=>step.run!=='node scripts/demo/runner-image-smoke.mjs');
   assert.throws(()=>validateWorkflow(value,dockerfiles()));
 });
 
@@ -159,14 +166,14 @@ for (const [name, mutate] of [
   [
     "skipped backend tests",
     (value) =>
-      (value.jobs.build.steps.find(
+      (value.jobs.java.steps.find(
         (step) => step.run?.startsWith("./mvnw -B verify"),
       ).run += " -DskipTests"),
   ],
   [
     "matrix rebuild",
     (value) =>
-      (value.jobs.build.strategy = { matrix: { service: ["api-gateway"] } }),
+      (value.jobs.java.strategy = { matrix: { service: ["api-gateway"] } }),
   ],
   [
     "implicit Git build context",
@@ -185,35 +192,38 @@ for (const [name, mutate] of [
   [
     "ignored failures",
     (value) =>
-      (value.jobs.build.steps.find((step) => step.run?.startsWith("./mvnw -B verify"))[
+      (value.jobs.java.steps.find((step) => step.run?.startsWith("./mvnw -B verify"))[
         "continue-on-error"
       ] = true),
   ],
-  ["unbounded build job", (value) => delete value.jobs.build["timeout-minutes"]],
+  ...["java", "runner", "web", "stage"].map((name) => [
+    `unbounded ${name} job`,
+    (value) => delete value.jobs[name]["timeout-minutes"],
+  ]),
   ["extended publication job", (value) => (value.jobs.publish["timeout-minutes"] = 31)],
-  ["unbounded Java verification", (value) => delete value.jobs.build.steps.find(
+  ["unbounded Java verification", (value) => delete value.jobs.java.steps.find(
     (step) => step.run?.startsWith("./mvnw -B verify"),
   )["timeout-minutes"]],
-  ["extended Java verification", (value) => (value.jobs.build.steps.find(
+  ["extended Java verification", (value) => (value.jobs.java.steps.find(
     (step) => step.run?.startsWith("./mvnw -B verify"),
   )["timeout-minutes"] = 36)],
-  ["unbounded native runner proof", (value) => delete value.jobs.build.steps.find(
+  ["unbounded native runner proof", (value) => delete value.jobs.runner.steps.find(
     (step) => step.run === "node scripts/demo/runner-image-smoke.mjs",
   )["timeout-minutes"]],
   ["missing unit fail-fast", (value) => {
-    const step = value.jobs.build.steps.find((step) => step.run?.startsWith("./mvnw -B verify"));
+    const step = value.jobs.java.steps.find((step) => step.run?.startsWith("./mvnw -B verify"));
     step.run = step.run.replace(" -Dsurefire.skipAfterFailureCount=1", "");
   }],
   ["missing integration fail-fast", (value) => {
-    const step = value.jobs.build.steps.find((step) => step.run?.startsWith("./mvnw -B verify"));
+    const step = value.jobs.java.steps.find((step) => step.run?.startsWith("./mvnw -B verify"));
     step.run = step.run.replace(" -Dfailsafe.skipAfterFailureCount=1", "");
   }],
-  ["extended intermediate artifact retention", (value) => (value.jobs.build.steps.find(
+  ["extended intermediate artifact retention", (value) => (value.jobs.stage.steps.find(
     (step) => step.with?.name === "demo-contexts",
   ).with["retention-days"] = 3)],
   [
     "unreviewed action tag",
-    (value) => (value.jobs.build.steps[0].uses = "actions/checkout@main"),
+    (value) => (value.jobs.java.steps[0].uses = "actions/checkout@main"),
   ],
   [
     "source changes ignored",
@@ -231,11 +241,11 @@ for (const [name, mutate] of [
       )),
   ],
   ["missing build dependency", (value) => (value.jobs.publish.needs = [])],
-  [
-    "build has registry credentials",
+  ...["java", "runner", "web", "stage"].map((name) => [
+    `${name} has registry credentials`,
     (value) =>
-      (value.jobs.build.permissions = { contents: "read", packages: "write" }),
-  ],
+      (value.jobs[name].permissions = { contents: "read", packages: "write" }),
+  ]),
   [
     "cancellation during promotion",
     (value) => (value.concurrency["cancel-in-progress"] = true),
@@ -243,15 +253,78 @@ for (const [name, mutate] of [
   [
     "environment skips tests",
     (value) =>
-      (value.jobs.build.env = { MAVEN_OPTS: "-Dmaven.test.skip=true" }),
+      (value.jobs.java.env = { MAVEN_OPTS: "-Dmaven.test.skip=true" }),
   ],
   [
     "step environment skips tests",
     (value) =>
-      (value.jobs.build.steps.find(
+      (value.jobs.java.steps.find(
         (step) => step.run?.startsWith("./mvnw -B verify"),
       ).env = { MAVEN_OPTS: "-Dmaven.test.skip=true" }),
   ],
+  ["publish bypasses staging", (value) => (value.jobs.publish.needs = ["java", "runner", "web"])],
+  ["publish waits for one gate only", (value) => (value.jobs.publish.needs = "java")],
+  ...["java", "runner", "web"].flatMap((gate) => [
+    [
+      `staging without the ${gate} gate`,
+      (value) => (value.jobs.stage.needs = value.jobs.stage.needs.filter((need) => need !== gate)),
+    ],
+    [`${gate} job env`, (value) => (value.jobs[gate].env = { CI_BYPASS: "1" })],
+    [`${gate} job conditional`, (value) => (value.jobs[gate].if = "false")],
+  ]),
+  ["gate job waiting on another job", (value) => (value.jobs.runner.needs = ["java"])],
+  [
+    "runner smoke report not uploaded",
+    (value) =>
+      (value.jobs.runner.steps = value.jobs.runner.steps.filter(
+        (step) => !step.uses?.startsWith("actions/upload-artifact@"),
+      )),
+  ],
+  [
+    "runner smoke report not downloaded by staging",
+    (value) =>
+      (value.jobs.stage.steps = value.jobs.stage.steps.filter(
+        (step) => step.with?.name !== "demo-runner-smoke",
+      )),
+  ],
+  [
+    "runner smoke report downloaded after staging",
+    (value) => {
+      const steps = value.jobs.stage.steps;
+      const download = steps.find((step) => step.with?.name === "demo-runner-smoke");
+      steps.splice(steps.indexOf(download), 1);
+      steps.splice(steps.findIndex((step) => step.run) + 1, 0, download);
+    },
+  ],
+  [
+    "artifact download from another run",
+    (value) =>
+      (value.jobs.stage.steps.find((step) => step.with?.name === "demo-runner-smoke").with["run-id"] = "1"),
+  ],
+  ["runner smoke moved to the web job", (value) => {
+    const step = value.jobs.runner.steps.find((step) => step.run === "node scripts/demo/runner-image-smoke.mjs");
+    value.jobs.runner.steps.splice(value.jobs.runner.steps.indexOf(step), 1);
+    value.jobs.web.steps.splice(-1, 0, step);
+  }],
+  ["RabbitMQ fixture moved to the java job", (value) => {
+    const step = value.jobs.runner.steps.find((step) => step.run?.startsWith("docker build"));
+    value.jobs.runner.steps.splice(value.jobs.runner.steps.indexOf(step), 1);
+    value.jobs.java.steps.splice(-1, 0, step);
+  }],
+  ["extended runner timeout", (value) => (value.jobs.runner["timeout-minutes"] = 46)],
+  ["extended web step timeout", (value) => (value.jobs.web.steps.find((step) => step.run === "npm --prefix web ci")["timeout-minutes"] = 6)],
+  ...["demo-java-jars", "demo-runner-smoke", "demo-web-dist"].flatMap((artifact) => [
+    [
+      `${artifact} kept for two days`,
+      (value) =>
+        (Object.values(value.jobs).flatMap((job) => job.steps).find((step) => step.with?.name === artifact).with["retention-days"] = 2),
+    ],
+    [
+      `${artifact} tolerates missing files`,
+      (value) =>
+        (Object.values(value.jobs).flatMap((job) => job.steps).find((step) => step.with?.name === artifact).with["if-no-files-found"] = "warn"),
+    ],
+  ]),
 ]) {
   test(`workflow refuses ${name}`, () => {
     const value = workflow();
@@ -323,6 +396,26 @@ test("missing, ambiguous and empty jars refuse preparation", (t) => {
     if (kind === "ambiguous")
       cpSync(jar, join(temp, "api-gateway/target/another.jar"));
     assert.throws(() => prepareContexts(temp, join(temp, "contexts")));
+  }
+});
+
+test("staging refuses a missing, mismatched or malformed runner smoke report", (t) => {
+  for (const [kind, report] of [
+    ["missing", undefined],
+    ["mismatched", JSON.stringify({ recipeContextSha256: "0".repeat(64) })],
+    ["not JSON", "not json"],
+    ["no hash", JSON.stringify({ assertions: 12 })],
+  ]) {
+    const temp = workspace(t);
+    const contexts = join(temp, "contexts");
+    const path = join(temp, "target/demo-runner-smoke/report.json");
+    if (report === undefined) rmSync(path);
+    else writeFileSync(path, report);
+    assert.throws(
+      () => prepareContexts(temp, contexts),
+      kind === "mismatched" ? /runner smoke/ : Error,
+    );
+    if (kind === "missing") assert.equal(existsSync(contexts), false);
   }
 });
 

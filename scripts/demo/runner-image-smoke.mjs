@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {cpSync,existsSync,mkdirSync,readFileSync,writeFileSync} from 'node:fs';
+import {cpSync,mkdirSync,readFileSync,writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
-import {stageRunnerContext,runnerContextFingerprint,validateRunnerContext} from './runner-context.mjs';
+import {stageRunnerContext,validateRunnerContext} from './runner-context.mjs';
 import {createSupervisorFixture,docker} from './fixtures/supervisor-fixture.mjs';
 import {createRunnerHost} from './fixtures/runner-host-fixture.mjs';
 
@@ -15,7 +15,6 @@ try{
   docker('version','--format','{{.Server.Version}}');
   fixture=await createSupervisorFixture({seedApi:true,realStores:true,nativeWatch:true});
   const context=join(fixture.root,'runner-context');const contextHash=stageRunnerContext(process.cwd(),context);validateRunnerContext(context);
-  if(existsSync('release-contexts/demo-runner'))assert.equal(runnerContextFingerprint('release-contexts/demo-runner'),contextHash,'CI staged context matches smoke inputs');
   const image='rebyte-demo-runner:proof-'+contextHash.slice(0,20);
   const build=result(['buildx','build','--platform','linux/amd64','--provenance=false','--load','--file',join(context,'Dockerfile'),'--tag',image,context]);
   assert.equal(build.status,0,'actual final runner build failed: '+build.stderr.slice(-2000));

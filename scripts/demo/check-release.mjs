@@ -33,19 +33,58 @@ const baseFamilies = {
   rabbitmq: "rabbitmq:4.1-management",
 };
 const sourceRoot = fileURLToPath(new URL("../../", import.meta.url));
-const buildCommands = [
-  ["npm install --global npm@12.2.0", 3],
-  ["npm --prefix web ci", 5],
-  ["docker build --tag rebyte/rabbitmq:4.1-delayed infra/rabbitmq", 5],
-  ["node --test scripts/demo/*.test.mjs", 8],
-  ["node scripts/demo/check-release.mjs", 1],
-  ["./mvnw -B verify -Dsurefire.skipAfterFailureCount=1 -Dfailsafe.skipAfterFailureCount=1", 35],
-  ["npm --prefix web run test:ci", 5],
-  ["npm --prefix web run build", 5],
-  ["node web/scripts/demo-image-smoke.mjs", 5],
-  ["node scripts/demo/check-release.mjs prepare release-contexts", 5],
-  ["node scripts/demo/runner-image-smoke.mjs", 25],
-];
+const upload = (name, path, extra) => ({
+  name,
+  path,
+  "if-no-files-found": "error",
+  "retention-days": 1,
+  ...extra,
+});
+const download = (name, path) => ({ name, path });
+const jobSpecs = {
+  java: {
+    timeout: 45,
+    runs: [
+      ["./mvnw -B verify -Dsurefire.skipAfterFailureCount=1 -Dfailsafe.skipAfterFailureCount=1", 35],
+    ],
+    downloads: [],
+    upload: upload("demo-java-jars", "*/target/*.jar", { "compression-level": 0 }),
+  },
+  runner: {
+    timeout: 45,
+    runs: [
+      ["docker build --tag rebyte/rabbitmq:4.1-delayed infra/rabbitmq", 5],
+      ["node --test scripts/demo/*.test.mjs", 8],
+      ["node scripts/demo/check-release.mjs", 1],
+      ["node scripts/demo/runner-image-smoke.mjs", 25],
+    ],
+    downloads: [],
+    upload: upload("demo-runner-smoke", "target/demo-runner-smoke/report.json"),
+  },
+  web: {
+    timeout: 30,
+    runs: [
+      ["npm install --global npm@12.2.0", 3],
+      ["npm --prefix web ci", 5],
+      ["npm --prefix web run test:ci", 5],
+      ["npm --prefix web run build", 5],
+      ["node web/scripts/demo-image-smoke.mjs", 5],
+    ],
+    downloads: [],
+    upload: upload("demo-web-dist", "web/dist"),
+  },
+  stage: {
+    timeout: 15,
+    needs: ["java", "runner", "web"],
+    runs: [["node scripts/demo/check-release.mjs prepare release-contexts", 5]],
+    downloads: [
+      download("demo-java-jars", "."),
+      download("demo-runner-smoke", "target/demo-runner-smoke"),
+      download("demo-web-dist", "web/dist"),
+    ],
+    upload: upload("demo-contexts", "release-contexts", { "compression-level": 0 }),
+  },
+};
 const actionRepos = [
   "actions/checkout",
   "actions/setup-java",
@@ -60,8 +99,10 @@ const action = (job, repo) =>
 
 export function validateWorkflow(workflow, dockerfiles) {
   assert(
-    !workflow.env && !workflow.defaults && !workflow.jobs.build.env,
-    "no global or build environment bypass",
+    !workflow.env &&
+      !workflow.defaults &&
+      Object.values(workflow.jobs).every((job) => !job.env),
+    "no global or job environment bypass",
   );
   assert.deepEqual(
     workflow.on,
@@ -85,24 +126,18 @@ export function validateWorkflow(workflow, dockerfiles) {
   );
   assert.deepEqual(
     Object.keys(workflow.jobs).sort(),
-    ["build", "publish"],
-    "only build and publish jobs",
+    ["java", "publish", "runner", "stage", "web"],
+    "only gate, stage and publish jobs",
   );
-  const { build, publish } = workflow.jobs;
-  assert.equal(build["timeout-minutes"], 60, "bounded build runtime");
+  const { publish } = workflow.jobs;
   assert.equal(publish["timeout-minutes"], 30, "bounded publication runtime");
-  assert.deepEqual(
-    build.permissions,
-    { contents: "read" },
-    "build cannot publish",
-  );
   assert.deepEqual(
     publish.permissions,
     { contents: "read", packages: "write" },
     "limited registry token",
   );
-  assert.equal(publish.needs, "build", "publish waits for verified artifacts");
-  for (const job of [build, publish]) {
+  assert.equal(publish.needs, "stage", "publish waits for staged contexts");
+  for (const job of Object.values(workflow.jobs)) {
     assert.equal(
       job["runs-on"],
       "ubuntu-24.04",
@@ -146,52 +181,42 @@ export function validateWorkflow(workflow, dockerfiles) {
       "compatible verified Node setup",
     );
   }
+  for (const [name, spec] of Object.entries(jobSpecs)) {
+    const job = workflow.jobs[name];
+    assert.equal(job["timeout-minutes"], spec.timeout, `bounded ${name} runtime`);
+    assert.deepEqual(job.permissions, { contents: "read" }, `${name} cannot publish`);
+    assert.deepEqual(job.needs, spec.needs, `${name} dependency chain`);
+    assert.deepEqual(
+      job.steps.filter((step) => step.run).map((step) => [step.run, step["timeout-minutes"]]),
+      spec.runs,
+      `${name} bounded verified commands`,
+    );
+    assert.equal(action(job, "actions/setup-java").length, name === "java" ? 1 : 0, "Java only where Maven runs");
+    assert.equal(action(job, "docker/login-action").length, 0, "no build registry login");
+    const downloads = action(job, "actions/download-artifact");
+    assert.deepEqual(downloads.map((step) => step.with), spec.downloads, `${name} same-run artifact inputs`);
+    assert(
+      downloads.every((step) => job.steps.indexOf(step) < job.steps.findIndex((other) => other.run)),
+      `${name} downloads before commands`,
+    );
+    assert.equal(action(job, "actions/upload-artifact").length, 1, `${name} one artifact output`);
+    assert.deepEqual(action(job, "actions/upload-artifact")[0].with, spec.upload, `${name} bounded artifact output`);
+    assert.equal(job.steps.at(-1), action(job, "actions/upload-artifact")[0], `${name} uploads after all gates`);
+  }
   assert.deepEqual(
-    build.steps.filter((step) => step.run).map((step) => [step.run, step["timeout-minutes"]]),
-    buildCommands,
-    "one bounded verified reactor and SPA build, then artifact preparation",
+    action(workflow.jobs.java, "actions/setup-java")[0].with,
+    { distribution: "temurin", "java-version": "26", cache: "maven" },
+    "Java 26 build",
   );
   assert.deepEqual(
     publish.steps.filter((step) => step.run).map((step) => step.run),
     ["node scripts/demo/check-release.mjs publish release-contexts"],
     "artifact-only publication, no deployment",
   );
-  assert.equal(action(build, "actions/setup-java").length, 1, "one Java setup");
-  assert.deepEqual(
-    action(build, "actions/setup-java")[0].with,
-    { distribution: "temurin", "java-version": "26", cache: "maven" },
-    "Java 26 build",
-  );
-  assert.equal(
-    action(build, "docker/login-action").length,
-    0,
-    "no build registry login",
-  );
   assert.equal(
     action(publish, "docker/setup-buildx-action").length,
     1,
     "explicit Buildx",
-  );
-  assert.equal(
-    action(build, "actions/upload-artifact").length,
-    1,
-    "one built artifact set",
-  );
-  assert.deepEqual(
-    action(build, "actions/upload-artifact")[0].with,
-    {
-      name: "demo-contexts",
-      path: "release-contexts",
-      "if-no-files-found": "error",
-      "retention-days": 1,
-      "compression-level": 0,
-    },
-    "upload only staged contexts",
-  );
-  assert.equal(
-    build.steps.at(-1),
-    action(build, "actions/upload-artifact")[0],
-    "upload after all build gates",
   );
   assert.equal(
     action(publish, "actions/download-artifact").length,
@@ -405,10 +430,14 @@ export function validateContexts(contexts) {
 
 export function prepareContexts(root, contexts) {
   assert(!existsSync(contexts), "refuse stale or existing artifact contexts");
+  // The smoke runs in a separate CI job, so its report is the only proof of which context it exercised.
+  const proof = JSON.parse(
+    read(join(root, "target/demo-runner-smoke/report.json")),
+  ).recipeContextSha256;
   mkdirSync(contexts, { recursive: true });
   for (const name of IMAGE_NAMES) {
     const target = join(contexts, name);
-    if(name==='demo-runner'){stageRunnerContext(root,target);continue;}
+    if(name==='demo-runner'){assert.equal(stageRunnerContext(root,target),proof,'runner smoke proved a different staged context');continue;}
     mkdirSync(target);
     if (name === "web") {
       const dist = join(root, "web/dist");
